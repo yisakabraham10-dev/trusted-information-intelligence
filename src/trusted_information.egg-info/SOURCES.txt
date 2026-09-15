@@ -1,0 +1,9 @@
+README.md
+pyproject.toml
+src/config.py
+src/main.py
+src/trusted_information.egg-info/PKG-INFO
+src/trusted_information.egg-info/SOURCES.txt
+src/trusted_information.egg-info/dependency_links.txt
+src/trusted_information.egg-info/requires.txt
+src/trusted_information.egg-info/top_level.txt
