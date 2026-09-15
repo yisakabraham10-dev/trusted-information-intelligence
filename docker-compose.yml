@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: trusted-information-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: trusted_information
+      POSTGRES_PASSWORD: trusted_information
+      POSTGRES_DB: trusted_information
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
