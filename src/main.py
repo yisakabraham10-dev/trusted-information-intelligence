@@ -1,4 +1,9 @@
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
+from src.db.dependencies import get_db
+
 
 app = FastAPI(
     title="Trusted Information Intelligence",
@@ -9,3 +14,12 @@ app = FastAPI(
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
+
+
+@app.get("/health/db")
+def database_health_check(db: Session = Depends(get_db)):
+    result = db.execute(text("SELECT 1"))
+    return {
+        "status": "ok",
+        "database": result.scalar(),
+    }
