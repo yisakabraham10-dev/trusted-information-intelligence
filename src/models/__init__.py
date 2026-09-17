@@ -10,6 +10,7 @@ from src.models.claim_entity import ClaimEntity
 from src.models.claim_correspondence import ClaimCorrespondence
 from src.models.policy_change import PolicyChange
 from src.models.policy_change_claim import PolicyChangeClaim
+from src.models.policy_change_correspondence import PolicyChangeCorrespondence
 
 __all__ = [
     "Source",
@@ -24,4 +25,5 @@ __all__ = [
     "ClaimCorrespondence", 
     "PolicyChange",
     "PolicyChangeClaim",
+    "PolicyChangeCorrespondence",
 ]
