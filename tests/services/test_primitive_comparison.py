@@ -1,93 +1,263 @@
-import uuid
+from decimal import Decimal
+from uuid import uuid4
 
-from src.services.claim_structure import EntityRef
-from src.services.primitive_comparison import compare_entity_ref
+from src.services.claim_structure import (
+    Duration,
+    EntityRef,
+    RequirementStructure,
+)
+from src.services.requirement_comparison import (
+    compare_requirements,
+)
 
 
-def test_both_missing_entities_are_unchanged():
-    result = compare_entity_ref(None, None)
-
-    assert result.changed is False
-    assert result.reason == "BOTH_ABSENT"
-
-
-def test_missing_entity_is_a_change():
-    entity = EntityRef(
-        entity_id=None,
-        raw_text="importers",
+def entity(raw_text: str):
+    return EntityRef(
+        entity_id=uuid4(),
+        raw_text=raw_text,
     )
 
-    result = compare_entity_ref(None, entity)
 
-    assert result.changed is True
-    assert result.reason == "PRESENCE_CHANGED"
-
-
-def test_same_canonical_entity_is_unchanged():
-    entity_id = uuid.uuid4()
-
-    old = EntityRef(
-        entity_id=entity_id,
-        raw_text="importers",
+def duration(value: str, unit: str):
+    return Duration(
+        value=Decimal(value),
+        unit=unit,
     )
 
-    new = EntityRef(
-        entity_id=entity_id,
-        raw_text="commercial importers",
+
+def requirement(
+    *,
+    actor: EntityRef | None,
+    modality: str,
+    action: str,
+    object: EntityRef | None,
+    deadline: Duration | None,
+):
+    return RequirementStructure(
+        actor=actor,
+        modality=modality,
+        action=action,
+        object=object,
+        deadline=deadline,
     )
 
-    result = compare_entity_ref(old, new)
 
-    assert result.changed is False
-    assert result.reason == "SAME_ENTITY"
+def test_identical_requirements_are_same():
+    actor_id = uuid4()
+    object_id = uuid4()
 
-
-def test_different_canonical_entities_are_changed():
-    old = EntityRef(
-        entity_id=uuid.uuid4(),
-        raw_text="importers",
+    old = RequirementStructure(
+        actor=EntityRef(actor_id, "importers"),
+        modality="REQUIRED",
+        action="submit",
+        object=EntityRef(object_id, "Form X"),
+        deadline=duration("30", "days"),
     )
 
-    new = EntityRef(
-        entity_id=uuid.uuid4(),
-        raw_text="exporters",
+    new = RequirementStructure(
+        actor=EntityRef(actor_id, "importers"),
+        modality="REQUIRED",
+        action="submit",
+        object=EntityRef(object_id, "Form X"),
+        deadline=duration("30", "days"),
     )
 
-    result = compare_entity_ref(old, new)
+    result = compare_requirements(old, new)
 
-    assert result.changed is True
-    assert result.reason == "ENTITY_CHANGED"
+    assert result.relationship_type == "SAME"
 
 
-def test_normalized_text_is_used_when_canonical_entities_are_missing():
-    old = EntityRef(
-        entity_id=None,
-        raw_text="  Commercial   Importers ",
+def test_changed_deadline_is_modified():
+    actor = entity("importers")
+    form = entity("Form X")
+
+    old = requirement(
+        actor=actor,
+        modality="REQUIRED",
+        action="submit",
+        object=form,
+        deadline=duration("30", "days"),
     )
 
-    new = EntityRef(
-        entity_id=None,
-        raw_text="commercial importers",
+    new = requirement(
+        actor=actor,
+        modality="REQUIRED",
+        action="submit",
+        object=form,
+        deadline=duration("45", "days"),
     )
 
-    result = compare_entity_ref(old, new)
+    result = compare_requirements(old, new)
 
-    assert result.changed is False
-    assert result.reason == "SAME_NORMALIZED_TEXT"
+    assert result.relationship_type == "MODIFIED"
 
 
-def test_different_text_is_changed_when_entities_are_unresolved():
-    old = EntityRef(
-        entity_id=None,
-        raw_text="commercial importers",
+def test_changed_action_is_modified():
+    actor = entity("importers")
+    form = entity("Form X")
+
+    old = requirement(
+        actor=actor,
+        modality="REQUIRED",
+        action="submit",
+        object=form,
+        deadline=duration("30", "days"),
     )
 
-    new = EntityRef(
-        entity_id=None,
-        raw_text="licensed importers",
+    new = requirement(
+        actor=actor,
+        modality="REQUIRED",
+        action="file",
+        object=form,
+        deadline=duration("30", "days"),
     )
 
-    result = compare_entity_ref(old, new)
+    result = compare_requirements(old, new)
 
-    assert result.changed is True
-    assert result.reason == "TEXT_CHANGED"
+    assert result.relationship_type == "MODIFIED"
+
+
+def test_changed_object_is_modified():
+    actor = entity("importers")
+
+    old = requirement(
+        actor=actor,
+        modality="REQUIRED",
+        action="submit",
+        object=entity("Form X"),
+        deadline=duration("30", "days"),
+    )
+
+    new = requirement(
+        actor=actor,
+        modality="REQUIRED",
+        action="submit",
+        object=entity("Form Y"),
+        deadline=duration("30", "days"),
+    )
+
+    result = compare_requirements(old, new)
+
+    assert result.relationship_type == "MODIFIED"
+
+
+def test_changed_actor_is_modified():
+    old = requirement(
+        actor=entity("importers"),
+        modality="REQUIRED",
+        action="submit",
+        object=entity("Form X"),
+        deadline=duration("30", "days"),
+    )
+
+    new = requirement(
+        actor=entity("licensed importers"),
+        modality="REQUIRED",
+        action="submit",
+        object=entity("Form X"),
+        deadline=duration("30", "days"),
+    )
+
+    result = compare_requirements(old, new)
+
+    assert result.relationship_type == "MODIFIED"
+
+
+def test_changed_modality_is_modified():
+    actor = entity("importers")
+    form = entity("Form X")
+
+    old = requirement(
+        actor=actor,
+        modality="REQUIRED",
+        action="submit",
+        object=form,
+        deadline=duration("30", "days"),
+    )
+
+    new = requirement(
+        actor=actor,
+        modality="PERMITTED",
+        action="submit",
+        object=form,
+        deadline=duration("30", "days"),
+    )
+
+    result = compare_requirements(old, new)
+
+    assert result.relationship_type == "MODIFIED"
+
+
+def test_unknown_deadline_comparison_requires_review():
+    actor_id = uuid4()
+    object_id = uuid4()
+
+    old = RequirementStructure(
+        actor=EntityRef(actor_id, "importers"),
+        modality="REQUIRED",
+        action="submit",
+        object=EntityRef(object_id, "Form X"),
+        deadline=Duration(Decimal("1"), "months"),
+    )
+
+    new = RequirementStructure(
+        actor=EntityRef(actor_id, "importers"),
+        modality="REQUIRED",
+        action="submit",
+        object=EntityRef(object_id, "Form X"),
+        deadline=Duration(Decimal("30"), "days"),
+    )
+
+    result = compare_requirements(old, new)
+
+    assert result.relationship_type == "UNKNOWN"
+
+
+def test_added_deadline_is_modified():
+    actor = entity("importers")
+    form = entity("Form X")
+
+    old = requirement(
+        actor=actor,
+        modality="REQUIRED",
+        action="submit",
+        object=form,
+        deadline=None,
+    )
+
+    new = requirement(
+        actor=actor,
+        modality="REQUIRED",
+        action="submit",
+        object=form,
+        deadline=duration("30", "days"),
+    )
+
+    result = compare_requirements(old, new)
+
+    assert result.relationship_type == "MODIFIED"
+
+
+def test_removed_deadline_is_modified():
+    actor = entity("importers")
+    form = entity("Form X")
+
+    old = requirement(
+        actor=actor,
+        modality="REQUIRED",
+        action="submit",
+        object=form,
+        deadline=duration("30", "days"),
+    )
+
+    new = requirement(
+        actor=actor,
+        modality="REQUIRED",
+        action="submit",
+        object=form,
+        deadline=None,
+    )
+
+    result = compare_requirements(old, new)
+
+    assert result.relationship_type == "MODIFIED"
