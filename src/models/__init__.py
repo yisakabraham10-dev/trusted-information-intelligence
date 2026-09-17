@@ -4,6 +4,7 @@ from src.models.section import Section
 from src.models.source import Source
 from src.models.claim import Claim
 from src.models.evidence import Evidence
+from src.models.claim_evidence import ClaimEvidence
 
 __all__ = [
     "Source",
@@ -11,5 +12,6 @@ __all__ = [
     "DocumentVersion",
     "Section",
     "Claim",
-    "Evidence"
+    "Evidence",
+    "ClaimEvidence"
 ]
