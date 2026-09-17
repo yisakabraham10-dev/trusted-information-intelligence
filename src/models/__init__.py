@@ -8,6 +8,8 @@ from src.models.claim_evidence import ClaimEvidence
 from src.models.entity import Entity
 from src.models.claim_entity import ClaimEntity
 from src.models.claim_correspondence import ClaimCorrespondence
+from src.models.policy_change import PolicyChange
+from src.models.policy_change_claim import PolicyChangeClaim
 
 __all__ = [
     "Source",
@@ -19,5 +21,7 @@ __all__ = [
     "ClaimEvidence",
     "Entity",
     "ClaimEntity",
-    "ClaimCorrespondence"
+    "ClaimCorrespondence", 
+    "PolicyChange",
+    "PolicyChangeClaim",
 ]
