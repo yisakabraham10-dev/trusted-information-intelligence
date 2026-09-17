@@ -5,6 +5,7 @@ from src.models.source import Source
 from src.models.claim import Claim
 from src.models.evidence import Evidence
 from src.models.claim_evidence import ClaimEvidence
+from src.models.entity import Entity
 
 __all__ = [
     "Source",
@@ -13,5 +14,6 @@ __all__ = [
     "Section",
     "Claim",
     "Evidence",
-    "ClaimEvidence"
+    "ClaimEvidence",
+    "entity"
 ]
