@@ -1,187 +1,283 @@
 # Trusted Information Intelligence
 
-> **What changed. Why did it change. Who does it affect. What should they do. And where is the evidence?**
+> **What changed. Why it changed. Who it affects. What to do. And where the evidence comes from.**
 
-Trusted Information Intelligence is an evidence-centered information platform designed to transform fragmented public information into **context-aware, actionable, and verifiable information**.
+Trusted Information Intelligence is an evidence-centered information intelligence platform designed to make fragmented public information — initially Ethiopian business and regulatory information — understandable, actionable, traceable, and verifiable.
 
-The initial focus is Ethiopian businesses, particularly importers and exporters who need to understand changes in laws, regulations, requirements, procedures, deadlines, and government decisions.
+The system is being built for the **OSF × Andela "Information You Can Trust" hackathon**.
 
-The system is designed around one principle:
-
-> **The database is the source of truth. AI explains and reasons over evidence; it does not manufacture facts.**
+The initial product focuses on Ethiopian import/export businesses, with the first demonstration centered around an Ethiopian clothing importer.
 
 ---
 
-## Problem
+# 1. Problem
 
-Important information affecting businesses and citizens is often distributed across:
+Government information already exists, but it is often fragmented across:
 
-* Government websites
-* Proclamations and regulations
-* Directives
-* Official announcements
-* Institutional documents
+* proclamations
+* regulations
+* government websites
+* institutional announcements
 * PDFs
-* Public notices
-* Official portals
+* portals
+* official notices
+* public communications
 
-The information may exist, but finding out **what changed, whether it applies to you, what you need to do, and which official document proves it** can still be difficult.
+The problem is not simply "there is no information."
 
-Social media and messaging platforms may make information easier to discover, but they are signals rather than authoritative sources.
+The problem is that a business owner may have difficulty answering:
 
-Trusted Information Intelligence aims to bridge that gap.
+> **What changed?**
+>
+> **When did it change?**
+>
+> **Why did it change?**
+>
+> **Does it affect my business?**
+>
+> **What do I need to do?**
+>
+> **What official evidence proves this?**
 
-Instead of simply answering:
+Social media, Telegram channels, news articles, and other public signals may help discover that something happened, but they are not automatically treated as authoritative evidence.
 
-> "What does this document say?"
-
-the system should answer:
-
-> "This changed, it affects your business because of X, here is what you should do, and here is the exact evidence supporting that conclusion."
-
----
-
-# Core Questions
-
-Every important piece of information should help answer:
-
-1. **What changed?**
-2. **When did it change?**
-3. **Why did it change?**
-4. **Who is affected?**
-5. **What should they do?**
-6. **What official evidence supports this?**
-
-When the available evidence does not answer one of these questions, the system should explicitly say so rather than invent an answer.
+The platform therefore prioritizes **primary authoritative sources**.
 
 ---
 
-# Product Vision
+# 2. Core Product Idea
 
-The intended user experience is:
-
-```text
-Business Profile
-      ↓
-Relevant Information
-      ↓
-What Changed?
-      ↓
-Does It Affect Me?
-      ↓
-Why Did It Change?
-      ↓
-What Should I Do?
-      ↓
-Official Evidence
-```
-
-For example:
+The central user journey is:
 
 ```text
 Ethiopian clothing importer
         ↓
-New import requirement detected
+Something changed
         ↓
-Product = Clothing
-Origin = China
-Business type = Importer
+What exactly changed?
         ↓
-Requirement applies
+Why did it change?
         ↓
-Explain the change
+Does it affect me?
         ↓
-Provide required action
+What should I do?
         ↓
-Show exact official source and evidence
+Show me the official evidence
 ```
+
+Example business profile:
+
+```json
+{
+  "business_type": "IMPORTER",
+  "location": "Addis Ababa",
+  "products": ["clothing"],
+  "origin": ["China"]
+}
+```
+
+The system should eventually be able to answer questions for this business profile using structured evidence rather than relying on an LLM to invent an answer.
 
 ---
 
-# Trust Model
+# 3. Product Principles
 
-The platform distinguishes between **facts, evidence, and interpretation**.
+## Evidence first
 
-It should never silently turn an inference into an official fact.
-
-## Evidence Levels
-
-| Level                         | Meaning                                         |
-| ----------------------------- | ----------------------------------------------- |
-| `OFFICIALLY_STATED_RATIONALE` | The official source explicitly gives the reason |
-| `SUPPORTING_OFFICIAL_CONTEXT` | Other official information provides context     |
-| `AI_INTERPRETATION`           | The system is interpreting available evidence   |
-| `UNKNOWN`                     | There is insufficient evidence                  |
-
-## Trust Status
-
-| Status                  | Meaning                                             |
-| ----------------------- | --------------------------------------------------- |
-| `SUPPORTED`             | Evidence adequately supports the claim              |
-| `PARTIALLY_SUPPORTED`   | Evidence supports only part of the claim            |
-| `CONFLICTING`           | Relevant sources disagree                           |
-| `OUTDATED`              | The information has been superseded                 |
-| `INSUFFICIENT_EVIDENCE` | There is not enough evidence to establish the claim |
+Every important factual answer should be traceable to evidence.
 
 The system should prefer:
 
-> **"There is insufficient evidence."**
+> "There is insufficient evidence"
 
-over an unsupported answer.
+over:
 
----
+> an unsupported or hallucinated answer.
 
-# Architecture
+## Database as source of truth
 
-The core architecture is:
+The database stores structured knowledge and evidence.
+
+The LLM is a reasoning and synthesis layer.
+
+The architecture is **not**:
 
 ```text
-ORIGINAL SOURCE
-      ↓
-DOCUMENT
-      ↓
-DOCUMENT VERSION
-      ↓
-DOCUMENT STRUCTURE
-      ↓
-CLAIMS + EVIDENCE
-      ↓
-ENTITIES + RELATIONSHIPS
-      ↓
-POLICY CHANGES
-      ↓
-ACTIONS
-      ↓
-RETRIEVAL / QUERY ENGINE
-      ↓
-LLM REASONING
-      ↓
-ANSWER + EVIDENCE
+PDF → LLM → Answer
 ```
-
-The system is intentionally **not designed as a PDF → LLM → answer pipeline**.
 
 Instead:
 
 ```text
-Source
+SOURCE
   ↓
-Structured Knowledge
+DOCUMENT
   ↓
-Evidence Retrieval
+DOCUMENT VERSION
   ↓
-Validation
+DOCUMENT STRUCTURE
   ↓
-Reasoning
+CLAIMS
   ↓
-Answer
+EVIDENCE
+  ↓
+RETRIEVAL
+  ↓
+REASONING
+  ↓
+ANSWER + CITATIONS
 ```
+
+## No destructive overwriting
+
+When a regulation changes, old information should remain available.
+
+The system should model historical versions and changes rather than simply replacing old records.
+
+## Contradictions should coexist
+
+If two sources make contradictory claims, the system should not silently overwrite one.
+
+It should preserve both claims and represent their relationship.
+
+## Official rationale must be distinguished from interpretation
+
+The system must never invent why a government institution changed something.
+
+Possible rationale classifications:
+
+```text
+OFFICIALLY_STATED_RATIONALE
+SUPPORTING_OFFICIAL_CONTEXT
+AI_INTERPRETATION
+UNKNOWN
+```
+
+If the government did not explicitly state a reason, the system should say so.
 
 ---
 
-# Current Database Model
+# 4. Retrieval Philosophy
 
-The current database foundation consists of:
+This project is **not RAG-first**.
+
+The preferred architecture is:
+
+```text
+USER
+ ↓
+QUERY UNDERSTANDING
+ ├── intent
+ ├── entities
+ ├── time
+ └── business context
+ ↓
+QUERY PLANNER
+ ├── SQL
+ ├── keyword search
+ └── vector search (optional)
+ ↓
+EVIDENCE RANKING
+ ↓
+EVIDENCE VALIDATION
+ ↓
+LLM REASONING
+ ↓
+ANSWER
+ +
+EXACT EVIDENCE
+```
+
+Structured retrieval should be primary for things such as:
+
+* requirements
+* fees
+* deadlines
+* eligibility
+* affected products
+* affected businesses
+* institutions
+* effective dates
+* regulatory changes
+
+Semantic/vector retrieval can later help with:
+
+* nuanced explanations
+* rationale
+* unusual questions
+* contextual passages
+
+The LLM should **interpret and explain retrieved evidence**, not determine facts independently.
+
+---
+
+# 5. Trust Model
+
+The system should distinguish different kinds of uncertainty.
+
+## Evidence confidence
+
+`Evidence.confidence`
+
+Represents the quality/confidence of the evidence extraction or source.
+
+It does **not** mean that the claim is true.
+
+## Claim-evidence strength
+
+`ClaimEvidence.strength`
+
+Represents how strongly a specific evidence item establishes a specific claim.
+
+Example:
+
+```text
+Claim A
+    Evidence 1 → SUPPORTS → 0.95
+    Evidence 2 → CONTEXT  → 0.40
+```
+
+These concepts must not be conflated.
+
+---
+
+# 6. Trust Statuses
+
+Potential answer/knowledge statuses:
+
+```text
+SUPPORTED
+PARTIALLY_SUPPORTED
+CONFLICTING
+OUTDATED
+INSUFFICIENT_EVIDENCE
+```
+
+The system should make uncertainty visible rather than hide it.
+
+---
+
+# 7. Source Hierarchy
+
+Sources are conceptually organized by authority:
+
+```text
+Tier 1 — Primary authoritative
+Tier 2 — Official aggregators
+Tier 3 — Institutional sources
+Tier 4 — Secondary sources
+Tier 5 — Public signals
+```
+
+Examples of useful Ethiopian official information sources include government legal repositories, ministries, official business portals, institutional portals, and other authoritative government publications.
+
+Public signals such as Telegram/news/social media can be useful for discovery, but should not automatically become authoritative evidence.
+
+---
+
+# 8. Database Architecture
+
+Current conceptual model:
 
 ```text
 sources
@@ -191,180 +287,282 @@ documents
 document_versions
    ↓
 sections
-   ↓
-claims
-   ↕
-claim_evidence
-   ↕
-evidence
+   ├── claims
+   │     ↓
+   │  claim_evidence
+   │     ↑
+   └── evidence
+```
 
+Entities are connected separately:
+
+```text
 claims
-   ↕
+   ↓
 claim_entities
-   ↕
+   ↓
 entities
 ```
 
-## Sources
+Future relationships will include:
 
-Represents an information source or institution.
+```text
+claims
+   ↓
+policy_changes
+   ↓
+actions
+```
 
-Examples:
+and:
 
-* Government ministry
-* Government agency
-* Official legal repository
-* Official business portal
-
-Important properties include:
-
-* Authority tier
-* Institution type
-* Base URL
-* Description
-* Active status
-
----
-
-## Documents
-
-Represents an individual document or information resource belonging to a source.
-
-Examples:
-
-* Proclamation
-* Regulation
-* Directive
-* Official announcement
-* Government guidance document
-
-A document can have multiple versions.
+```text
+business_profiles
+   ↓
+business_profile_entities
+   ↓
+entities
+```
 
 ---
 
-## Document Versions
+# 9. Current Database Models
 
-A document should not simply be overwritten when it changes.
+## `sources`
 
-Each version stores information such as:
+Represents an information source/institution.
 
-* Publication date
-* Effective date
-* Version label
-* Retrieval time
-* Storage path
-* Content hash
-* Current/outdated status
-* Previous version
+Current fields:
 
-This allows the system to preserve historical information.
+```text
+id
+name
+authority_tier
+base_url
+institution_type
+description
+is_active
+created_at
+```
 
-Conceptually:
+---
+
+## `documents`
+
+Represents a logical document published by a source.
+
+Current fields:
+
+```text
+id
+source_id
+title
+document_type
+url
+description
+created_at
+```
+
+A document may have multiple versions.
+
+---
+
+## `document_versions`
+
+Represents a particular version of a document.
+
+Current fields:
+
+```text
+id
+document_id
+version_label
+publication_date
+effective_date
+retrieved_at
+storage_path
+content_hash
+status
+supersedes_version_id
+notes
+```
+
+Important design principle:
 
 ```text
 Document
-   │
    ├── Version 1
-   │
    ├── Version 2
-   │
    └── Version 3
 ```
 
----
+Versions should not overwrite one another.
 
-## Sections
-
-Documents are broken into structured sections.
-
-A section can contain:
-
-* Section number
-* Title
-* Parent section
-* Page range
-* Raw text
-
-This provides precise locations for claims and evidence.
+`supersedes_version_id` allows version history to be represented explicitly.
 
 ---
 
-## Claims
+## `sections`
 
-A claim is a **discrete, checkable assertion** extracted from a source.
+Represents structured portions of a document version.
 
-A claim does not automatically mean that the system believes the statement is true.
-
-It represents what a source says.
-
-Examples:
+Current fields:
 
 ```text
-"Importers must submit X."
-
-"The requirement becomes effective on Y."
-
-"The authority responsible for this process is Z."
+id
+document_version_id
+parent_section_id
+section_number
+title
+page_start
+page_end
+raw_text
+created_at
 ```
 
-Claims can have:
-
-* Claim type
-* Text
-* Normalized text
-* Effective dates
-* Status
-* Source section
+This provides document structure and precise locations for claims/evidence.
 
 ---
 
-## Evidence
+## `claims`
 
-Evidence represents a specific piece of source material that can support, contradict, or provide context for a claim.
+A claim is a discrete, checkable factual assertion extracted from a source.
 
-Evidence contains:
+Important distinction:
 
-* Source section
-* Page
-* Exact quote
-* Evidence quality/confidence
+> A claim is not automatically true simply because it exists in the database.
 
-Evidence intentionally does **not** contain a `claim_id`.
+A claim represents what a source says.
 
-This allows one piece of evidence to support multiple claims.
-
----
-
-## Claim ↔ Evidence
-
-`claim_evidence` represents the relationship between claims and evidence.
+Current fields:
 
 ```text
-Claim
-  │
-  ├── SUPPORTS → Evidence
-  ├── CONTRADICTS → Evidence
-  └── CONTEXT → Evidence
+id
+section_id
+claim_type
+text
+normalized_text
+effective_from
+effective_to
+status
+created_at
 ```
 
-The relationship also contains a strength value describing how strongly that evidence establishes the claim.
-
-This is a many-to-many relationship:
+Potential claim types include things such as:
 
 ```text
-Claim A ───── Evidence 1
-Claim B ───── Evidence 1
-Claim B ───── Evidence 2
-Claim C ───── Evidence 2
+REQUIREMENT
+FEE
+DEADLINE
+ELIGIBILITY
+PROCEDURE
+PENALTY
+DEFINITION
+POLICY
+RATIONALE
 ```
 
-This structure allows the platform to represent real-world evidence relationships without duplicating source material.
+The exact taxonomy can evolve as implementation progresses.
 
 ---
 
-## Entities
+# 10. Evidence Model
 
-Entities represent important real-world objects mentioned by claims.
+Evidence is intentionally separate from claims.
+
+Current structure:
+
+```text
+evidence
+──────────────
+id
+section_id
+page
+quote
+confidence
+created_at
+```
+
+An evidence record identifies a specific passage/location in a document.
+
+### Important design decision
+
+`Evidence` does **not** contain `claim_id`.
+
+This is intentional.
+
+One evidence passage may support multiple claims:
+
+```text
+Evidence #7
+    ↓
+Claim #1
+Claim #2
+Claim #3
+```
+
+Likewise, one claim may require multiple pieces of evidence:
+
+```text
+Claim #1
+    ↓
+Evidence #7
+Evidence #9
+Evidence #12
+```
+
+Therefore Claim ↔ Evidence is many-to-many.
+
+---
+
+# 11. ClaimEvidence Model
+
+`claim_evidence` represents the relationship between a claim and evidence.
+
+Current structure:
+
+```text
+claim_id
+evidence_id
+relation_type
+strength
+```
+
+The primary key is:
+
+```text
+(claim_id, evidence_id)
+```
+
+This prevents duplicate relationships.
+
+`relation_type` can represent:
+
+```text
+SUPPORTS
+CONTRADICTS
+CONTEXT
+```
+
+`strength` represents the strength of the relationship between that evidence and that claim.
+
+It is **not** a probability that the claim is true.
+
+---
+
+# 12. Entity Model
+
+`entities` represents important real-world concepts.
+
+Current structure:
+
+```text
+id
+entity_type
+name
+description
+created_at
+```
 
 Examples:
 
@@ -385,150 +583,123 @@ REQUIREMENT
     Import License
 ```
 
-Rather than immediately creating separate tables for every entity category, the current design uses a generalized entity model.
+The initial implementation intentionally uses one generic entity table rather than immediately creating separate tables for products, countries, institutions, etc.
+
+This keeps the knowledge model flexible.
 
 ---
 
-## Claim ↔ Entity
+# 13. ClaimEntity Model
 
 `claim_entities` connects claims to entities.
 
-For example:
+Current structure:
+
+```text
+claim_id
+entity_id
+relation_type
+```
+
+Composite primary key:
+
+```text
+(claim_id, entity_id)
+```
+
+Example:
 
 ```text
 Claim:
-"Importers of clothing from China must satisfy requirement X."
+"Importers of clothing from China must satisfy X."
 
-        │
+        ↓
+
+claim_entities
+
         ├── AFFECTS → Clothing
         ├── APPLIES_TO → Importer
         └── ORIGIN → China
 ```
 
-This relationship allows structured queries such as:
-
-> Find claims affecting clothing importers from China.
-
----
-
-# Planned Data Model
-
-The database will eventually expand to include:
+This allows structured queries such as:
 
 ```text
-sources
-documents
-document_versions
-sections
-
-claims
-evidence
-claim_evidence
-
-entities
-claim_entities
-
-policy_changes
-actions
-
-business_profiles
-business_profile_entities
+Show changes affecting clothing importers from China.
 ```
 
-Additional specialized structures may be introduced when the product requirements justify them.
+without requiring the LLM to perform all entity reasoning from raw text.
 
 ---
 
-# Policy Changes
+# 14. Planned Database Models
 
-A major purpose of the system is identifying **what changed**.
+These have not yet been fully implemented.
 
-Instead of simply storing the newest document, the system will compare versions.
+## `policy_changes`
+
+Represents changes between old and new claims.
 
 Conceptually:
 
 ```text
-OLD VERSION
-     ↓
-OLD CLAIMS
-     ↓
-COMPARISON
-     ↓
-NEW CLAIMS
-     ↓
-NEW VERSION
+old_claim
+    ↓
+policy_change
+    ↓
+new_claim
 ```
 
-A policy change may represent:
-
-* Added requirement
-* Removed requirement
-* Modified requirement
-* Changed fee
-* Changed deadline
-* Changed eligibility
-* Changed responsible institution
-* Changed procedure
-* Changed penalty
-* Changed effective date
-
-The system should preserve both the old and new claims rather than overwriting history.
-
----
-
-# Why Did It Change?
-
-The platform will distinguish between:
-
-### Official rationale
-
-The government explicitly states why a change was made.
-
-### Supporting official context
-
-Other official material helps explain the context.
-
-### AI interpretation
-
-The system infers a possible explanation from available evidence.
-
-### Unknown
-
-There is insufficient evidence to establish the reason.
-
-The system must never present an AI-generated explanation as an official government reason.
-
----
-
-# Actions
-
-Policy information is only useful if it can become actionable.
-
-The planned `actions` model will connect a policy change to concrete steps.
-
-For example:
+Potential change types:
 
 ```text
-Policy Change
-     ↓
-Action 1: Obtain document X
-Action 2: Submit application Y
-Action 3: Complete procedure Z
-     ↓
-Deadline
+ADDED
+REMOVED
+MODIFIED
 ```
 
-Actions should distinguish between:
+The change record should eventually answer:
 
-* Officially required actions
-* Recommended actions
-* AI-generated interpretations or recommendations
+```text
+What changed?
+When?
+What was the old requirement?
+What is the new requirement?
+When does it become effective?
+Why did it change?
+```
+
+The rationale should reference a claim/evidence record when possible.
 
 ---
 
-# Business Profiles
+## `actions`
 
-The platform will eventually allow information to be evaluated against a business profile.
+Represents what a user/business should do in response to a change.
+
+Conceptually:
+
+```text
+policy_change
+      ↓
+    actions
+```
+
+Actions must distinguish:
+
+```text
+OFFICIAL_REQUIREMENT
+RECOMMENDED_ACTION
+AI_INTERPRETATION
+```
+
+The system should not present an AI recommendation as though it were a government requirement.
+
+---
+
+## `business_profiles`
+
+Represents the context of the user/business.
 
 Example:
 
@@ -541,330 +712,894 @@ Example:
 }
 ```
 
-The profile can then be connected to relevant entities.
-
-Instead of asking:
-
-> "What changed?"
-
-the user can ask:
-
-> "What changed that affects my business?"
+This enables personalized impact analysis.
 
 ---
 
-# Retrieval Architecture
+## `business_profile_entities`
 
-The system is designed around **Evidence-Centered Knowledge Retrieval** rather than RAG-first architecture.
+Connects business profiles to entities.
 
-The planned query pipeline is:
-
-```text
-USER QUESTION
-     ↓
-QUERY UNDERSTANDING
-     ├── Intent
-     ├── Entities
-     ├── Time
-     └── User Context
-     ↓
-QUERY PLANNER
-     ├── SQL
-     ├── Keyword Search
-     └── Vector Search
-     ↓
-EVIDENCE RANKING
-     ↓
-EVIDENCE VALIDATION
-     ↓
-LLM REASONING
-     ↓
-ANSWER + EVIDENCE
-```
-
-Structured retrieval should be preferred for things such as:
-
-* Requirements
-* Fees
-* Deadlines
-* Eligibility
-* Institutions
-* Effective dates
-* Products
-* Affected business types
-* Policy changes
-
-Semantic/vector retrieval can support more nuanced questions where exact structured fields are insufficient.
-
----
-
-# Role of AI
-
-AI is a reasoning and interpretation layer.
-
-It should help with:
-
-* Document extraction
-* Claim extraction
-* Entity extraction
-* Change detection
-* Contradiction detection
-* Query understanding
-* Evidence ranking
-* Natural-language explanations
-* Action summarization
-
-AI should **not** be treated as the database of truth.
-
-The intended flow is:
-
-```text
-Evidence
-   ↓
-Validation
-   ↓
-AI reasoning
-   ↓
-Explanation
-```
-
-not:
-
-```text
-AI
- ↓
-Make up answer
- ↓
-Find citation afterward
-```
-
----
-
-# Source Hierarchy
-
-The platform prioritizes sources according to authority.
-
-```text
-Tier 1 — Primary authoritative sources
-Tier 2 — Official aggregators
-Tier 3 — Institutional sources
-Tier 4 — Secondary sources
-Tier 5 — Public signals
-```
-
-Official government documents should be preferred whenever available.
-
-Social media, Telegram channels, news reports, and other public signals can help identify information that should be investigated, but they should not automatically become authoritative evidence.
-
----
-
-# Planned MVP
-
-The first usable MVP will focus on a narrow vertical rather than attempting to model every Ethiopian regulation.
-
-### Initial target
-
-**Ethiopian import/export businesses**
-
-with an initial demonstration around:
-
-**Clothing importers**
-
-The MVP should demonstrate:
+Example:
 
 ```text
 Business Profile
       ↓
-Relevant Regulation
+business_profile_entities
       ↓
-Detected Change
-      ↓
-Affected Business
-      ↓
-Explanation
-      ↓
-Action
-      ↓
-Official Evidence
+PRODUCT → Clothing
+COUNTRY → China
+BUSINESS_TYPE → Importer
 ```
 
 ---
 
-# Development Roadmap
+# 15. Planned End-to-End Pipeline
 
-## Phase 1 — Knowledge Foundation
+Eventually the system should support:
 
-* [x] Project structure
-* [x] FastAPI application
-* [x] PostgreSQL
-* [x] SQLAlchemy
-* [x] Alembic
-* [x] Source model
-* [x] Document model
-* [x] Document version model
-* [x] Section model
-* [x] Claim model
-* [x] Evidence model
-* [x] Claim/evidence relationship
-* [x] Entity model
-* [x] Claim/entity relationship
-
-## Phase 2 — Regulatory Knowledge
-
-* [ ] Policy change model
-* [ ] Action model
-* [ ] Claim relationship/supersession model
-* [ ] Contradiction representation
-* [ ] Temporal version handling
-* [ ] Source authority hierarchy
-* [ ] Initial official sources
-* [ ] Initial Ethiopian regulatory documents
-
-## Phase 3 — Ingestion
-
-* [ ] Document acquisition
-* [ ] PDF storage
-* [ ] Text extraction
-* [ ] Section extraction
-* [ ] Metadata extraction
-* [ ] Claim extraction
-* [ ] Evidence generation
-* [ ] Entity extraction
-* [ ] Content hashing
-* [ ] Document version detection
-
-## Phase 4 — Intelligence
-
-* [ ] Document comparison
-* [ ] Change detection
-* [ ] Contradiction detection
-* [ ] Affected-entity detection
-* [ ] Action generation
-* [ ] Evidence ranking
-* [ ] Query understanding
-* [ ] Retrieval engine
-* [ ] LLM reasoning layer
-
-## Phase 5 — User Application
-
-* [ ] Business profiles
-* [ ] Business/entity matching
-* [ ] Regulatory change feed
-* [ ] Evidence-backed answers
-* [ ] Source navigation
-* [ ] "What changed?" interface
-* [ ] "Does this affect me?" interface
-* [ ] Action recommendations
-* [ ] Outdated information warnings
-* [ ] Conflict warnings
-
-## Phase 6 — Hackathon Demo
-
-* [ ] Populate real official documents
-* [ ] Complete one end-to-end business scenario
-* [ ] Polish API
-* [ ] Build demonstration UI
-* [ ] Create README
-* [ ] Create pitch deck
-* [ ] Record demo video
-* [ ] Final testing
-* [ ] Public GitHub repository
+```text
+OFFICIAL SOURCE
+      ↓
+DOCUMENT DISCOVERY
+      ↓
+DOCUMENT DOWNLOAD
+      ↓
+DOCUMENT VERSION
+      ↓
+PDF/TEXT EXTRACTION
+      ↓
+DOCUMENT STRUCTURING
+      ↓
+CLAIM EXTRACTION
+      ↓
+ENTITY EXTRACTION
+      ↓
+EVIDENCE CREATION
+      ↓
+CLAIM ↔ EVIDENCE
+      ↓
+CLAIM ↔ ENTITY
+      ↓
+OLD vs NEW COMPARISON
+      ↓
+POLICY CHANGE
+      ↓
+BUSINESS IMPACT
+      ↓
+ACTION
+      ↓
+API
+      ↓
+USER INTERFACE
+```
 
 ---
 
-# Engineering Principles
+# 16. Planned Ingestion System
 
-### 1. Evidence before explanation
+The ingestion system should eventually:
 
-Every important answer should be traceable to evidence.
+1. Discover official documents.
+2. Download the original document.
+3. Store the original file outside PostgreSQL.
+4. Calculate a content hash.
+5. Create a document/version record.
+6. Extract text.
+7. Preserve page information.
+8. Identify sections.
+9. Extract atomic claims.
+10. Extract entities.
+11. Create evidence records.
+12. Connect claims to evidence.
+13. Detect whether the document is a new version.
+14. Compare versions.
 
-### 2. Preserve history
+Original documents should not be stored as large binary blobs directly inside the relational database.
 
-Never destroy previous regulatory information when new information arrives.
+Instead, the database stores metadata such as:
 
-### 3. Separate facts from interpretation
+```text
+storage_path
+content_hash
+```
 
-The system should clearly distinguish source statements from AI interpretation.
-
-### 4. Prefer structured retrieval
-
-Use the database to answer structured questions before relying on semantic search.
-
-### 5. No fabricated rationale
-
-If an official source does not state why something changed, the system must not invent a reason.
-
-### 6. Contradictions should be represented
-
-Conflicting information should be preserved and surfaced rather than silently overwritten.
-
-### 7. Narrow first, generalize later
-
-The MVP should solve one concrete information problem extremely well before expanding into other domains.
+while the original PDF is kept in file/object storage.
 
 ---
 
-# Technology
+# 17. Planned Change Detection
+
+The system should compare claims rather than simply comparing entire PDFs.
+
+Conceptually:
+
+```text
+OLD DOCUMENT
+    ↓
+OLD CLAIMS
+    ↓
+        COMPARE
+    ↑
+NEW CLAIMS
+    ↑
+NEW DOCUMENT
+```
+
+Possible results:
+
+```text
+ADDED
+REMOVED
+MODIFIED
+UNCHANGED
+```
+
+Example:
+
+```text
+Old:
+Importers must submit X within 30 days.
+
+New:
+Importers must submit X within 15 days.
+```
+
+This should become:
+
+```text
+MODIFIED
+
+Old requirement:
+30 days
+
+New requirement:
+15 days
+```
+
+rather than simply returning a generic PDF diff.
+
+---
+
+# 18. Planned Contradiction Detection
+
+Contradictions should be represented explicitly.
+
+For example:
+
+```text
+Claim A
+"Requirement X applies to product Y."
+
+Claim B
+"Requirement X does not apply to product Y."
+```
+
+The system should preserve both and identify their relationship.
+
+However, apparent contradictions may actually be explained by:
+
+* different effective dates
+* different jurisdictions
+* different product categories
+* exceptions
+* newer versions
+* different institutions
+* different scopes
+
+Therefore contradiction detection must consider context and time.
+
+---
+
+# 19. Planned Query Engine
+
+The query engine should eventually understand:
+
+```text
+"What changed?"
+
+"Does this affect clothing importers?"
+
+"What do I need to do?"
+
+"When does the new rule become effective?"
+
+"Why was this changed?"
+
+"Show me the official source."
+
+"Is this information still current?"
+```
+
+Query understanding should extract:
+
+```text
+intent
+entities
+time
+business context
+```
+
+Then the query planner chooses appropriate retrieval mechanisms.
+
+---
+
+# 20. Planned API
+
+FastAPI is the backend framework.
+
+The current application starts successfully and has:
+
+```text
+GET /health
+```
+
+which currently returns:
+
+```json
+{
+  "status": "ok"
+}
+```
+
+Future API areas are expected to include:
+
+```text
+/sources
+/documents
+/document-versions
+/claims
+/evidence
+/entities
+/changes
+/actions
+/business-profiles
+/query
+```
+
+The exact API design should be developed after the underlying domain models are stable.
+
+---
+
+# 21. Technology Stack
 
 Current stack:
 
-* Python
-* FastAPI
-* PostgreSQL
-* SQLAlchemy
-* Alembic
-* Pydantic Settings
-* Podman / podman-compose
+```text
+Python
+FastAPI
+PostgreSQL 17
+SQLAlchemy
+Alembic
+psycopg
+Pydantic Settings
+Podman
+podman-compose
+pytest
+httpx
+ruff
+```
 
-Planned technologies may include:
+Potential future technologies:
 
-* PDF/document extraction
-* Vector search / `pgvector`
-* LLM APIs
-* Background processing
-* Object/file storage
-* Frontend application
+```text
+PDF/document extraction
+Object/file storage
+Vector search / pgvector
+LLM provider
+Frontend
+```
 
-Technology choices will be introduced only when they solve a demonstrated requirement.
+Do not add infrastructure merely because it is fashionable.
+
+Each dependency should solve a concrete problem.
 
 ---
 
-# Development Philosophy
+# 22. Repository Structure
 
-Trusted Information Intelligence is being developed incrementally.
-
-Each database feature follows:
+Current/recommended structure:
 
 ```text
-MODEL
+trusted-information/
+│
+├── src/
+│   ├── main.py
+│   ├── config.py
+│   │
+│   ├── models/
+│   │   ├── __init__.py
+│   │   ├── source.py
+│   │   ├── document.py
+│   │   ├── document_version.py
+│   │   ├── section.py
+│   │   ├── claim.py
+│   │   ├── evidence.py
+│   │   ├── claim_evidence.py
+│   │   ├── entity.py
+│   │   └── claim_entity.py
+│   │
+│   ├── schemas/
+│   ├── routes/
+│   ├── services/
+│   ├── repositories/
+│   ├── ai/
+│   └── db/
+│       ├── base.py
+│       ├── session.py
+│       └── test_connection.py
+│
+├── documents/
+│
+├── scripts/
+│
+├── tests/
+│
+├── alembic/
+│   ├── env.py
+│   ├── script.py.mako
+│   └── versions/
+│
+├── .env
+├── .env.example
+├── docker-compose.yml
+├── pyproject.toml
+└── README.md
+```
+
+Directory-specific READMEs can later be added to:
+
+```text
+docs/
+src/models/
+src/services/
+src/ai/
+scripts/
+tests/
+```
+
+if the project becomes large enough to justify them.
+
+---
+
+# 23. Environment
+
+The application currently uses:
+
+```text
+DATABASE_URL
+```
+
+from `.env`.
+
+The development PostgreSQL instance is currently exposed locally on:
+
+```text
+localhost:5433
+```
+
+with PostgreSQL running inside Podman.
+
+`.env` is ignored by Git.
+
+`.env.example` should contain placeholders rather than credentials.
+
+---
+
+# 24. Alembic Migration History
+
+Current migration progression:
+
+```text
+Source
+    ↓
+bd280b5b5806
+    create claims table
+    ↓
+1ed77c1264d9
+    create evidence table
+    ↓
+c00f18d3f59d
+    create claim evidence table
+    ↓
+3b436163edfa
+    create entities table
+    ↓
+claim_entities migration
+    next migration
+```
+
+At the last confirmed database checkpoint:
+
+```text
+3b436163edfa (head)
+```
+
+The `ClaimEntity` model and its migration are currently being added.
+
+**Before continuing development, confirm the current Alembic head with:**
+
+```bash
+alembic current
+```
+
+---
+
+# 25. Development Workflow
+
+Every database feature should follow:
+
+```text
+BUILD
   ↓
-MIGRATION
+TEST
   ↓
-INSPECTION
+GENERATE MIGRATION
   ↓
-DATABASE MIGRATION
+INSPECT MIGRATION
   ↓
-VERIFICATION
+UPGRADE DATABASE
   ↓
-GIT CHECKPOINT
+VERIFY
+  ↓
+GIT DIFF
+  ↓
+COMMIT
   ↓
 NEXT FEATURE
 ```
 
-This keeps the schema understandable and makes every architectural decision traceable.
+Do not blindly run autogenerated migrations.
+
+Always inspect them.
 
 ---
 
-# Status
+# 26. Git Workflow
 
-**Current stage: Knowledge foundation**
+Git is part of the development process.
 
-The database schema is actively being developed. The current implementation contains the foundational structures for sources, documents, versions, sections, claims, evidence, entities, and their relationships.
+After completing each meaningful model/database feature:
 
-The next stage is to connect this foundation to **policy changes, actions, document ingestion, and evidence-centered retrieval**.
+```bash
+git status
+git diff
+```
+
+Then commit the feature.
+
+Examples of the existing style:
+
+```bash
+git commit -m "create evidence model"
+git commit -m "create claim evidence relationship"
+git commit -m "create entity model"
+```
+
+Keep commits small enough that the development history explains how the system was built.
 
 ---
 
-## Core Idea
+# 27. Current Implementation Status
 
-> **Trusted Information Intelligence does not try to replace authoritative information. It makes authoritative information understandable, connected, traceable, and actionable.**
+## Completed
+
+```text
+[x] Repository initialized
+[x] README / project concept
+[x] Python project configuration
+[x] Virtual environment
+[x] FastAPI application
+[x] /health endpoint
+[x] PostgreSQL development database
+[x] Podman setup
+[x] SQLAlchemy configuration
+[x] Database connection
+[x] Alembic configuration
+[x] Source model
+[x] Document model
+[x] DocumentVersion model
+[x] Section model
+[x] Claim model
+[x] Evidence model
+[x] ClaimEvidence model
+[x] Entity model
+[x] ClaimEntity model
+```
+
+## Completed migrations
+
+```text
+[x] sources
+[x] documents
+[x] document_versions
+[x] sections
+[x] claims
+[x] evidence
+[x] claim_evidence
+[x] entities
+```
+
+## In progress / verify
+
+```text
+[ ] claim_entities migration status
+```
+
+Before proceeding, verify:
+
+```bash
+alembic current
+```
+
+---
+
+# 28. Remaining MVP Work
+
+The database foundation is only the beginning.
+
+Major remaining components:
+
+```text
+[ ] Finish entity relationships
+[ ] PolicyChange model
+[ ] Action model
+[ ] BusinessProfile model
+[ ] BusinessProfileEntity model
+
+[ ] Source ingestion
+[ ] PDF/document extraction
+[ ] Document storage
+[ ] Section extraction
+[ ] Claim extraction
+[ ] Evidence extraction
+[ ] Entity extraction
+
+[ ] Version comparison
+[ ] Policy change detection
+[ ] Contradiction detection
+[ ] Freshness/outdated detection
+
+[ ] Retrieval/query engine
+[ ] Evidence ranking
+[ ] Evidence validation
+[ ] LLM reasoning layer
+
+[ ] FastAPI domain routes
+[ ] Query endpoint
+[ ] Business-impact endpoint
+
+[ ] Seed real Ethiopian regulatory data
+[ ] Build frontend/demo
+[ ] Prepare demonstration scenario
+[ ] README finalization
+[ ] Pitch deck
+[ ] Demo video
+```
+
+---
+
+# 29. MVP Strategy
+
+Do **not** attempt to ingest every Ethiopian regulation.
+
+The hackathon MVP should demonstrate one compelling vertical.
+
+Recommended demonstration:
+
+```text
+Ethiopian clothing importer
+        ↓
+Official regulatory documents
+        ↓
+A real change
+        ↓
+Structured claims
+        ↓
+Evidence
+        ↓
+Policy change
+        ↓
+Business impact
+        ↓
+Action
+        ↓
+Source citation
+```
+
+The system should be convincing end-to-end before it becomes broad.
+
+---
+
+# 30. Things We Are Deliberately NOT Building
+
+## Not a generic chatbot
+
+The product is not:
+
+> "Ask our AI anything."
+
+## Not a generic PDF chatbot
+
+The architecture should not depend on feeding entire PDFs into an LLM.
+
+## Not pure RAG
+
+Retrieval is a component, not the product architecture.
+
+## Not a replacement for government
+
+The system organizes and explains public information.
+
+It does not become the authoritative source itself.
+
+## Not an automatic truth machine
+
+The system must preserve uncertainty and conflicting evidence.
+
+## Not a hallucinated legal adviser
+
+The system must clearly distinguish:
+
+```text
+Official requirement
+AI interpretation
+Recommended action
+Unknown
+```
+
+---
+
+# 31. Critical Design Decisions Already Made
+
+These decisions should not be casually changed by a future development session.
+
+### Claim and Evidence are separate
+
+```text
+Claim ≠ Evidence
+```
+
+### Evidence does not contain `claim_id`
+
+Because Claim ↔ Evidence is many-to-many.
+
+### `ClaimEvidence` stores the relationship
+
+```text
+claim_id
+evidence_id
+relation_type
+strength
+```
+
+### Evidence confidence ≠ claim truth
+
+`Evidence.confidence` concerns evidence quality/extraction.
+
+`ClaimEvidence.strength` concerns the claim-evidence relationship.
+
+### Historical versions are preserved
+
+Do not overwrite regulatory information when a new version arrives.
+
+### Contradictions are preserved
+
+Do not silently merge contradictory claims.
+
+### Official rationale must be evidence-backed
+
+Never fabricate why a government changed a rule.
+
+### PostgreSQL is the source of truth
+
+The LLM should operate over retrieved structured evidence.
+
+---
+
+# 32. Immediate Next Development Step
+
+The next development session should first verify:
+
+```bash
+alembic current
+git status
+```
+
+Then verify the `claim_entities` migration.
+
+After that, continue with:
+
+```text
+PolicyChange
+    ↓
+Action
+    ↓
+BusinessProfile
+    ↓
+BusinessProfileEntity
+```
+
+Only after the domain model is sufficiently stable should significant ingestion/AI work begin.
+
+---
+
+# 33. Handoff Instructions for the Next ChatGPT Session
+
+**IMPORTANT: This section exists specifically so development can continue in a new ChatGPT conversation.**
+
+The next assistant should treat this README as the project's current development specification.
+
+Do not redesign the architecture from scratch.
+
+Do not restart completed work.
+
+Do not replace the evidence-centered architecture with a generic RAG chatbot.
+
+Continue from the current repository state.
+
+First:
+
+```bash
+alembic current
+git status
+```
+
+Then inspect the current repository if necessary.
+
+The development process is:
+
+```text
+one feature
+→ implement
+→ inspect
+→ migrate
+→ verify
+→ commit
+→ next feature
+```
+
+The immediate domain-model sequence is:
+
+```text
+Claim
+Evidence
+ClaimEvidence
+Entity
+ClaimEntity
+PolicyChange
+Action
+BusinessProfile
+BusinessProfileEntity
+```
+
+The major architectural principle is:
+
+> **Database is the source of truth; the LLM is the retrieval/reasoning/synthesis layer.**
+
+The core product question is:
+
+> **What changed, why did it change, who does it affect, what should they do, and where is the evidence?**
+
+The first target user is:
+
+> **An Ethiopian clothing importer.**
+
+The first successful MVP should demonstrate:
+
+```text
+real official source
+      ↓
+real document
+      ↓
+structured claims
+      ↓
+evidence
+      ↓
+detected change
+      ↓
+business impact
+      ↓
+action
+      ↓
+exact source evidence
+```
+
+Do not optimize for breadth before this end-to-end path works.
+
+---
+
+# 34. Hackathon Context
+
+Hackathon:
+
+**OSF × Andela — Information You Can Trust**
+
+Challenge theme:
+
+> Use AI software development tools to build people-centric technology that makes reliable information about civic life and opportunity visible, accessible, and actionable.
+
+Submission deadline:
+
+**September 21, 2026 at 23:59 UTC**
+
+The product should emphasize:
+
+* trustworthy information
+* evidence
+* accessibility
+* actionability
+* transparency
+* AI-assisted development
+* a convincing demonstration
+
+The final submission is expected to include:
+
+```text
+Public GitHub repository
+README
+Demo video
+Pitch deck PDF
+Written project summary
+```
+
+---
+
+# 35. Final Mental Model
+
+The entire system can be understood as:
+
+```text
+                    OFFICIAL INFORMATION
+                            │
+                            ↓
+                         SOURCES
+                            │
+                            ↓
+                        DOCUMENTS
+                            │
+                            ↓
+                     DOCUMENT VERSIONS
+                            │
+                            ↓
+                         SECTIONS
+                            │
+              ┌─────────────┴─────────────┐
+              ↓                           ↓
+           CLAIMS                      EVIDENCE
+              │                           │
+              └───────────┬───────────────┘
+                          ↓
+                   CLAIM ↔ EVIDENCE
+                          │
+                          ↓
+                       ENTITIES
+                          │
+                          ↓
+                  CLAIM ↔ ENTITY
+                          │
+                          ↓
+                  POLICY CHANGES
+                          │
+                          ↓
+                       ACTIONS
+                          │
+                          ↓
+                 BUSINESS PROFILE
+                          │
+                          ↓
+                  BUSINESS IMPACT
+                          │
+                          ↓
+                    QUERY ENGINE
+                          │
+                          ↓
+                         LLM
+                          │
+                          ↓
+              ANSWER + EVIDENCE + CONTEXT
+```
+
+The fundamental goal is not merely to generate answers.
+
+It is to create a **traceable chain from public information → structured fact → evidence → change → impact → action**.
