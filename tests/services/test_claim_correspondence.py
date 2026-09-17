@@ -79,3 +79,22 @@ def test_existing_normalized_text_is_used():
     result = evaluator.evaluate(old_claim, new_claim)
 
     assert result.relationship_type == "SAME"
+
+
+def test_incompatible_claim_types_are_unrelated():
+    evaluator = CorrespondenceEvaluator()
+
+    old_claim = make_claim(
+        "Importers must submit the form.",
+        claim_type="REQUIREMENT",
+    )
+    new_claim = make_claim(
+        "The application fee is 500 birr.",
+        claim_type="FEE",
+    )
+
+    result = evaluator.evaluate(old_claim, new_claim)
+
+    assert result.relationship_type == "UNRELATED"
+    assert result.confidence == 1.0
+    assert result.method == "CLAIM_TYPE_INCOMPATIBLE"
