@@ -7,6 +7,7 @@ from src.models.evidence import Evidence
 from src.models.claim_evidence import ClaimEvidence
 from src.models.entity import Entity
 from src.models.claim_entity import ClaimEntity
+from src.models.claim_correspondence import ClaimCorrespondence
 
 __all__ = [
     "Source",
@@ -17,5 +18,6 @@ __all__ = [
     "Evidence",
     "ClaimEvidence",
     "Entity",
-    "ClaimEntity"
+    "ClaimEntity",
+    "ClaimCorrespondence"
 ]
