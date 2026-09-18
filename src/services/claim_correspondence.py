@@ -10,6 +10,7 @@ class CorrespondenceResult:
     relationship_type: str
     confidence: float
     method: str
+    changes: tuple[str, ...] = ()
 
 
 class CorrespondenceEvaluator:
@@ -28,7 +29,10 @@ class CorrespondenceEvaluator:
         old_structure: ClaimStructure | None = None,
         new_structure: ClaimStructure | None = None,
     ) -> CorrespondenceResult:
-        if not self._claim_types_compatible(old_claim, new_claim):
+        if not self._claim_types_compatible(
+            old_claim,
+            new_claim,
+        ):
             return CorrespondenceResult(
                 relationship_type="UNRELATED",
                 confidence=1.0,
@@ -45,10 +49,13 @@ class CorrespondenceEvaluator:
         if structured_result is not None:
             return structured_result
 
-        return self._evaluate_text(old_claim, new_claim)
+        return self._evaluate_text(
+            old_claim,
+            new_claim,
+        )
 
+    @staticmethod
     def _evaluate_structured(
-        self,
         old_claim: Claim,
         new_claim: Claim,
         old_structure: ClaimStructure | None,
@@ -70,6 +77,7 @@ class CorrespondenceEvaluator:
             relationship_type=result.relationship_type,
             confidence=result.confidence,
             method=result.method,
+            changes=result.changes,
         )
 
     @staticmethod
@@ -97,6 +105,17 @@ class CorrespondenceEvaluator:
             method="EXACT_NORMALIZED",
         )
 
+    @staticmethod
+    def _get_normalized_text(claim: Claim) -> str:
+        if claim.normalized_text:
+            return " ".join(
+                claim.normalized_text.lower().split()
+            )
+
+        return " ".join(
+            claim.text.lower().split()
+        )
+
     @classmethod
     def _claim_types_compatible(
         cls,
@@ -104,15 +123,10 @@ class CorrespondenceEvaluator:
         new_claim: Claim,
     ) -> bool:
         compatible_types = cls.COMPATIBLE_CLAIM_TYPES.get(
-            old_claim.claim_type,
-            set(),
+            old_claim.claim_type
         )
 
+        if compatible_types is None:
+            return old_claim.claim_type == new_claim.claim_type
+
         return new_claim.claim_type in compatible_types
-
-    @staticmethod
-    def _get_normalized_text(claim: Claim) -> str:
-        if claim.normalized_text is not None:
-            return claim.normalized_text
-
-        return " ".join(claim.text.lower().split())

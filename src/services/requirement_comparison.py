@@ -14,18 +14,10 @@ class CorrespondenceResult:
     relationship_type: str
     confidence: float
     method: str
+    changes: tuple[str, ...] = ()
 
 
 class RequirementComparator:
-    """
-    Compare two RequirementStructure objects.
-
-    This comparator operates at the semantic-structure level.
-    Primitive comparison functions determine what changed in
-    individual fields; this class determines what those field
-    differences mean for claim correspondence.
-    """
-
     def compare(
         self,
         old: RequirementStructure,
@@ -99,8 +91,6 @@ class RequirementComparator:
     def _build_result(
         comparisons: dict[str, FieldComparison],
     ) -> CorrespondenceResult:
-        # Any primitive comparison that is genuinely unknown means
-        # that we cannot safely establish semantic correspondence.
         if any(
             comparison.kind == ComparisonKind.UNKNOWN
             for comparison in comparisons.values()
@@ -111,22 +101,24 @@ class RequirementComparator:
                 method="REQUIREMENT_STRUCTURE",
             )
 
-        # No semantic field changed.
-        if all(
-            not comparison.changed
+        changes = tuple(
+            comparison.reason
             for comparison in comparisons.values()
-        ):
+            if comparison.changed
+        )
+
+        if not changes:
             return CorrespondenceResult(
                 relationship_type="SAME",
                 confidence=1.0,
                 method="REQUIREMENT_STRUCTURE",
             )
 
-        # At least one field changed and all changes are understood.
         return CorrespondenceResult(
             relationship_type="MODIFIED",
             confidence=1.0,
             method="REQUIREMENT_STRUCTURE",
+            changes=changes,
         )
 
 
@@ -135,5 +127,4 @@ def compare_requirements(
     new: RequirementStructure,
 ) -> CorrespondenceResult:
     """Convenience function for comparing two requirements."""
-
     return RequirementComparator().compare(old, new)

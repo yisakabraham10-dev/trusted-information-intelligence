@@ -138,7 +138,8 @@ def compare_quantity(
             kind=ComparisonKind.VALUE_CHANGED,
             reason=(
                 f"VALUE_CHANGED: "
-                f"{old.value}{old.unit} -> {new.value}{new.unit}"
+                f"{old.value} {old.unit} -> "
+                f"{new.value} {new.unit}"
             ),
         )
 
@@ -189,8 +190,8 @@ def compare_quantity(
             kind=ComparisonKind.UNIT_CHANGED,
             reason=(
                 f"EQUIVALENT_UNITS: "
-                f"{old.value}{old.unit} = "
-                f"{new.value}{new.unit}"
+                f"{old.value} {old.unit} = "
+                f"{new.value} {new.unit}"
             ),
         )
 
@@ -199,7 +200,8 @@ def compare_quantity(
         kind=ComparisonKind.VALUE_CHANGED,
         reason=(
             f"VALUE_CHANGED: "
-            f"{old.value}{old.unit} -> {new.value}{new.unit}"
+            f"{old.value} {old.unit} -> "
+            f"{new.value} {new.unit}"
         ),
     )
 
@@ -247,7 +249,8 @@ def compare_duration(
             kind=ComparisonKind.VALUE_CHANGED,
             reason=(
                 f"VALUE_CHANGED: "
-                f"{old.value}{old.unit} -> {new.value}{new.unit}"
+                f"{old.value} {old.unit} -> "
+                f"{new.value} {new.unit}"
             ),
         )
 
@@ -290,8 +293,8 @@ def compare_duration(
             kind=ComparisonKind.UNIT_CHANGED,
             reason=(
                 f"EQUIVALENT_DURATION_UNITS: "
-                f"{old.value}{old.unit} = "
-                f"{new.value}{new.unit}"
+                f"{old.value} {old.unit} = "
+                f"{new.value} {new.unit}"
             ),
         )
 
@@ -300,7 +303,8 @@ def compare_duration(
         kind=ComparisonKind.VALUE_CHANGED,
         reason=(
             f"VALUE_CHANGED: "
-            f"{old.value}{old.unit} -> {new.value}{new.unit}"
+            f"{old.value} {old.unit} -> "
+            f"{new.value} {new.unit}"
         ),
     )
 

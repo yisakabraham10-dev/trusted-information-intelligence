@@ -10,23 +10,13 @@ class ChangeDetectionResult:
 
 
 class ChangeDetector:
-    """
-    Convert claim correspondence into a policy-change classification.
-
-    This service does not:
-    - discover claim correspondence
-    - persist database records
-    - decide whether two claims correspond
-
-    It only interprets an already-evaluated correspondence.
-    """
-
     def detect(
         self,
         correspondence: CorrespondenceResult,
         old_claim_exists: bool = True,
         new_claim_exists: bool = True,
     ) -> ChangeDetectionResult | None:
+
         if not old_claim_exists and not new_claim_exists:
             raise ValueError(
                 "At least one claim must exist."
@@ -47,10 +37,25 @@ class ChangeDetector:
         if correspondence.relationship_type == "MODIFIED":
             return ChangeDetectionResult(
                 change_type="MODIFIED",
-                summary="An existing claim was modified.",
+                summary=self._build_modified_summary(
+                    correspondence
+                ),
             )
 
         if correspondence.relationship_type == "SAME":
             return None
 
         return None
+
+    @staticmethod
+    def _build_modified_summary(
+        correspondence: CorrespondenceResult,
+    ) -> str:
+        if not correspondence.changes:
+            return "An existing claim was modified."
+
+        return (
+            "An existing claim was modified: "
+            + "; ".join(correspondence.changes)
+            + "."
+        )

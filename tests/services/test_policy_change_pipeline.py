@@ -230,7 +230,10 @@ def test_modified_requirement_flows_into_policy_change(
     assert policy_change.change_type == "MODIFIED"
     assert (
         policy_change.summary
-        == "An existing claim was modified."
+        == (
+            "An existing claim was modified: "
+            "VALUE_CHANGED: 30 days -> 45 days."
+        )
     )
     assert policy_change.effective_date == datetime(
         2026,
