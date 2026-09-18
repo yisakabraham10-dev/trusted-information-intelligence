@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 
 from src.models.claim import Claim
+from src.services.claim_structure import ClaimStructure
+from src.services.requirement_comparison import compare_requirements
 
 
 @dataclass(frozen=True)
@@ -23,6 +25,8 @@ class CorrespondenceEvaluator:
         self,
         old_claim: Claim,
         new_claim: Claim,
+        old_structure: ClaimStructure | None = None,
+        new_structure: ClaimStructure | None = None,
     ) -> CorrespondenceResult:
         if not self._claim_types_compatible(old_claim, new_claim):
             return CorrespondenceResult(
@@ -31,8 +35,54 @@ class CorrespondenceEvaluator:
                 method="CLAIM_TYPE_INCOMPATIBLE",
             )
 
-        old_normalized = self._get_normalized_text(old_claim)
-        new_normalized = self._get_normalized_text(new_claim)
+        structured_result = self._evaluate_structured(
+            old_claim,
+            new_claim,
+            old_structure,
+            new_structure,
+        )
+
+        if structured_result is not None:
+            return structured_result
+
+        return self._evaluate_text(old_claim, new_claim)
+
+    def _evaluate_structured(
+        self,
+        old_claim: Claim,
+        new_claim: Claim,
+        old_structure: ClaimStructure | None,
+        new_structure: ClaimStructure | None,
+    ) -> CorrespondenceResult | None:
+        if (
+            old_claim.claim_type != "REQUIREMENT"
+            or old_structure is None
+            or new_structure is None
+        ):
+            return None
+
+        result = compare_requirements(
+            old_structure,
+            new_structure,
+        )
+
+        return CorrespondenceResult(
+            relationship_type=result.relationship_type,
+            confidence=result.confidence,
+            method=result.method,
+        )
+
+    @staticmethod
+    def _evaluate_text(
+        old_claim: Claim,
+        new_claim: Claim,
+    ) -> CorrespondenceResult:
+        old_normalized = CorrespondenceEvaluator._get_normalized_text(
+            old_claim
+        )
+        new_normalized = CorrespondenceEvaluator._get_normalized_text(
+            new_claim
+        )
 
         if old_normalized == new_normalized:
             return CorrespondenceResult(

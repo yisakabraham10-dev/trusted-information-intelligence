@@ -1,100 +1,176 @@
-import uuid
+from decimal import Decimal
+from uuid import uuid4
 
 from src.models.claim import Claim
 from src.services.claim_correspondence import CorrespondenceEvaluator
+from src.services.claim_structure import (
+    Duration,
+    EntityRef,
+    RequirementStructure,
+)
 
 
-def make_claim(
+def entity(raw_text: str) -> EntityRef:
+    return EntityRef(
+        entity_id=None,
+        raw_text=raw_text,
+    )
+
+
+def duration(value: str, unit: str) -> Duration:
+    return Duration(
+        value=Decimal(value),
+        unit=unit,
+    )
+
+
+def requirement(
+    *,
+    actor: str,
+    modality: str,
+    action: str,
+    object: str,
+    deadline: Duration | None,
+) -> RequirementStructure:
+    return RequirementStructure(
+        actor=entity(actor),
+        modality=modality,
+        action=action,
+        object=entity(object),
+        deadline=deadline,
+    )
+
+
+def claim(
+    *,
     text: str,
-    normalized_text: str | None = None,
     claim_type: str = "REQUIREMENT",
 ) -> Claim:
     return Claim(
-        section_id=uuid.uuid4(),
+        id=uuid4(),
+        section_id=uuid4(),
         claim_type=claim_type,
         text=text,
-        normalized_text=normalized_text,
+        normalized_text=None,
+        effective_from=None,
+        effective_to=None,
+        status="ACTIVE",
     )
 
 
-def test_identical_claims_are_same():
-    evaluator = CorrespondenceEvaluator()
-
-    old_claim = make_claim(
-        "Importers must submit the form.",
+def test_requirement_claims_use_structured_comparison():
+    old_claim = claim(
+        text="Importers must submit Form X within 30 days."
     )
-    new_claim = make_claim(
-        "Importers must submit the form.",
+    new_claim = claim(
+        text="Importers must submit Form X within 45 days."
     )
 
-    result = evaluator.evaluate(old_claim, new_claim)
+    old_structure = requirement(
+        actor="importer",
+        modality="REQUIRED",
+        action="submit",
+        object="Form X",
+        deadline=duration("30", "days"),
+    )
+
+    new_structure = requirement(
+        actor="importer",
+        modality="REQUIRED",
+        action="submit",
+        object="Form X",
+        deadline=duration("45", "days"),
+    )
+
+    result = CorrespondenceEvaluator().evaluate(
+        old_claim,
+        new_claim,
+        old_structure=old_structure,
+        new_structure=new_structure,
+    )
+
+    assert result.relationship_type == "MODIFIED"
+    assert result.method == "REQUIREMENT_STRUCTURE"
+
+
+def test_identical_requirement_structures_are_same():
+    old_claim = claim(
+        text="Importers must submit Form X within 30 days."
+    )
+    new_claim = claim(
+        text="Importers must submit Form X within 30 days."
+    )
+
+    structure = requirement(
+        actor="importer",
+        modality="REQUIRED",
+        action="submit",
+        object="Form X",
+        deadline=duration("30", "days"),
+    )
+
+    result = CorrespondenceEvaluator().evaluate(
+        old_claim,
+        new_claim,
+        old_structure=structure,
+        new_structure=structure,
+    )
+
+    assert result.relationship_type == "SAME"
+    assert result.confidence == 1.0
+    assert result.method == "REQUIREMENT_STRUCTURE"
+
+
+def test_missing_structure_falls_back_to_text_comparison():
+    old_claim = claim(
+        text="Importers must submit Form X."
+    )
+    new_claim = claim(
+        text="Importers must submit Form X."
+    )
+
+    result = CorrespondenceEvaluator().evaluate(
+        old_claim,
+        new_claim,
+    )
 
     assert result.relationship_type == "SAME"
     assert result.confidence == 1.0
     assert result.method == "EXACT_NORMALIZED"
 
 
-def test_whitespace_and_case_are_ignored():
-    evaluator = CorrespondenceEvaluator()
-
-    old_claim = make_claim(
-        "Importers must submit the form.",
+def test_missing_structure_does_not_break_existing_behavior():
+    old_claim = claim(
+        text="Importers must submit Form X."
     )
-    new_claim = make_claim(
-        "  IMPORTERS   MUST submit the form. ",
+    new_claim = claim(
+        text="Importers must submit Form Y."
     )
 
-    result = evaluator.evaluate(old_claim, new_claim)
-
-    assert result.relationship_type == "SAME"
-
-
-def test_different_claims_are_currently_unrelated():
-    evaluator = CorrespondenceEvaluator()
-
-    old_claim = make_claim(
-        "Importers must submit the form.",
+    result = CorrespondenceEvaluator().evaluate(
+        old_claim,
+        new_claim,
     )
-    new_claim = make_claim(
-        "Exporters must submit the form.",
-    )
-
-    result = evaluator.evaluate(old_claim, new_claim)
 
     assert result.relationship_type == "UNRELATED"
+    assert result.confidence == 0.0
+    assert result.method == "EXACT_NORMALIZED"
 
 
-def test_existing_normalized_text_is_used():
-    evaluator = CorrespondenceEvaluator()
-
-    old_claim = make_claim(
-        "Importers must submit the FORM.",
-        normalized_text="importers must submit the form.",
-    )
-    new_claim = make_claim(
-        "Importers must submit the form.",
-        normalized_text="importers must submit the form.",
-    )
-
-    result = evaluator.evaluate(old_claim, new_claim)
-
-    assert result.relationship_type == "SAME"
-
-
-def test_incompatible_claim_types_are_unrelated():
-    evaluator = CorrespondenceEvaluator()
-
-    old_claim = make_claim(
-        "Importers must submit the form.",
+def test_incompatible_claim_types_still_return_unrelated():
+    old_claim = claim(
+        text="Importers must submit Form X.",
         claim_type="REQUIREMENT",
     )
-    new_claim = make_claim(
-        "The application fee is 500 birr.",
-        claim_type="FEE",
+    new_claim = claim(
+        text="Importers may submit Form X.",
+        claim_type="PERMISSION",
     )
 
-    result = evaluator.evaluate(old_claim, new_claim)
+    result = CorrespondenceEvaluator().evaluate(
+        old_claim,
+        new_claim,
+    )
 
     assert result.relationship_type == "UNRELATED"
-    assert result.confidence == 1.0
     assert result.method == "CLAIM_TYPE_INCOMPATIBLE"

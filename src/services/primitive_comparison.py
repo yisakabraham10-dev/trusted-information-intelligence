@@ -27,19 +27,31 @@ class UnitInfo:
     factor: Decimal | None
 
 
+# Units used by Quantity.
+#
+# The factor converts the unit into the canonical unit
+# for its dimension.
+#
+# Example:
+#   1 kg -> 1000 g
+#
+# Calendar durations such as months and years are intentionally
+# NOT included here. They are handled by DURATION_UNIT_REGISTRY.
 UNIT_REGISTRY: dict[str, UnitInfo] = {
     "": UnitInfo("count", Decimal("1")),
     "g": UnitInfo("mass", Decimal("1")),
     "kg": UnitInfo("mass", Decimal("1000")),
-    "days": UnitInfo("duration", Decimal("1")),
-    "months": UnitInfo("duration", None),
-    "years": UnitInfo("duration", Decimal("365")),
     "%": UnitInfo("percent", Decimal("1")),
     "ETB": UnitInfo("currency", None),
     "USD": UnitInfo("currency", None),
 }
 
 
+# Units used specifically by Duration.
+#
+# Fixed-duration units can safely be converted.
+# Calendar units cannot safely be converted without a reference
+# date, so their factor is intentionally None.
 DURATION_UNIT_REGISTRY: dict[str, UnitInfo] = {
     "seconds": UnitInfo("duration", Decimal("1")),
     "minutes": UnitInfo("duration", Decimal("60")),
@@ -55,6 +67,8 @@ def compare_entity_ref(
     old: EntityRef | None,
     new: EntityRef | None,
 ) -> FieldComparison:
+    """Compare two entity references."""
+
     if old is None and new is None:
         return FieldComparison(
             changed=False,
@@ -69,6 +83,7 @@ def compare_entity_ref(
             reason="PRESENCE_CHANGED",
         )
 
+    # If both references resolve to known entities, compare their IDs.
     if old.entity_id is not None and new.entity_id is not None:
         return FieldComparison(
             changed=old.entity_id != new.entity_id,
@@ -84,6 +99,7 @@ def compare_entity_ref(
             ),
         )
 
+    # Otherwise compare the extracted raw text conservatively.
     old_text = " ".join(old.raw_text.lower().split())
     new_text = " ".join(new.raw_text.lower().split())
 
@@ -106,6 +122,9 @@ def compare_quantity(
     old: Quantity,
     new: Quantity,
 ) -> FieldComparison:
+    """Compare two quantities without making unsafe conversions."""
+
+    # Same unit: direct numeric comparison.
     if old.unit == new.unit:
         if old.value == new.value:
             return FieldComparison(
@@ -126,6 +145,7 @@ def compare_quantity(
     old_info = UNIT_REGISTRY.get(old.unit)
     new_info = UNIT_REGISTRY.get(new.unit)
 
+    # We do not know one or both units.
     if old_info is None or new_info is None:
         return FieldComparison(
             changed=True,
@@ -136,6 +156,7 @@ def compare_quantity(
             ),
         )
 
+    # Different dimensions cannot represent the same quantity.
     if old_info.dimension != new_info.dimension:
         return FieldComparison(
             changed=True,
@@ -147,6 +168,7 @@ def compare_quantity(
             ),
         )
 
+    # Same dimension, but conversion is not safely defined.
     if old_info.factor is None or new_info.factor is None:
         return FieldComparison(
             changed=True,
@@ -160,6 +182,7 @@ def compare_quantity(
     old_canonical = old.value * old_info.factor
     new_canonical = new.value * new_info.factor
 
+    # Different representation, same semantic quantity.
     if old_canonical == new_canonical:
         return FieldComparison(
             changed=True,
@@ -185,6 +208,8 @@ def compare_optional_quantity(
     old: Quantity | None,
     new: Quantity | None,
 ) -> FieldComparison:
+    """Compare quantities where either side may be absent."""
+
     if old is None and new is None:
         return FieldComparison(
             changed=False,
@@ -206,6 +231,9 @@ def compare_duration(
     old: Duration,
     new: Duration,
 ) -> FieldComparison:
+    """Compare two durations using only safe fixed conversions."""
+
+    # Same unit: direct numeric comparison.
     if old.unit == new.unit:
         if old.value == new.value:
             return FieldComparison(
@@ -226,6 +254,7 @@ def compare_duration(
     old_info = DURATION_UNIT_REGISTRY.get(old.unit)
     new_info = DURATION_UNIT_REGISTRY.get(new.unit)
 
+    # We do not know one or both duration units.
     if old_info is None or new_info is None:
         return FieldComparison(
             changed=True,
@@ -236,6 +265,11 @@ def compare_duration(
             ),
         )
 
+    # Months and years deliberately have no fixed conversion factor.
+    #
+    # Therefore:
+    #   1 month != automatically 30 days
+    #   1 year != automatically 365 days
     if old_info.factor is None or new_info.factor is None:
         return FieldComparison(
             changed=True,
@@ -249,6 +283,7 @@ def compare_duration(
     old_canonical = old.value * old_info.factor
     new_canonical = new.value * new_info.factor
 
+    # Different units, same actual duration.
     if old_canonical == new_canonical:
         return FieldComparison(
             changed=True,
@@ -274,6 +309,8 @@ def compare_optional_duration(
     old: Duration | None,
     new: Duration | None,
 ) -> FieldComparison:
+    """Compare durations where either side may be absent."""
+
     if old is None and new is None:
         return FieldComparison(
             changed=False,

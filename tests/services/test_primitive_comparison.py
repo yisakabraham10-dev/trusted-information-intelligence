@@ -1,263 +1,279 @@
 from decimal import Decimal
 from uuid import uuid4
 
-from src.services.claim_structure import (
-    Duration,
-    EntityRef,
-    RequirementStructure,
-)
-from src.services.requirement_comparison import (
-    compare_requirements,
+from src.services.claim_structure import Duration, EntityRef, Quantity
+from src.services.primitive_comparison import (
+    ComparisonKind,
+    compare_duration,
+    compare_entity_ref,
+    compare_optional_duration,
+    compare_optional_quantity,
+    compare_quantity,
 )
 
 
-def entity(raw_text: str):
-    return EntityRef(
-        entity_id=uuid4(),
-        raw_text=raw_text,
+def quantity(value: str, unit: str) -> Quantity:
+    return Quantity(
+        value=Decimal(value),
+        unit=unit,
     )
 
 
-def duration(value: str, unit: str):
+def duration(value: str, unit: str) -> Duration:
     return Duration(
         value=Decimal(value),
         unit=unit,
     )
 
 
-def requirement(
-    *,
-    actor: EntityRef | None,
-    modality: str,
-    action: str,
-    object: EntityRef | None,
-    deadline: Duration | None,
-):
-    return RequirementStructure(
-        actor=actor,
-        modality=modality,
-        action=action,
-        object=object,
-        deadline=deadline,
+def test_same_entity_reference():
+    entity_id = uuid4()
+
+    old = EntityRef(
+        entity_id=entity_id,
+        raw_text="importers",
     )
 
-
-def test_identical_requirements_are_same():
-    actor_id = uuid4()
-    object_id = uuid4()
-
-    old = RequirementStructure(
-        actor=EntityRef(actor_id, "importers"),
-        modality="REQUIRED",
-        action="submit",
-        object=EntityRef(object_id, "Form X"),
-        deadline=duration("30", "days"),
+    new = EntityRef(
+        entity_id=entity_id,
+        raw_text="licensed importers",
     )
 
-    new = RequirementStructure(
-        actor=EntityRef(actor_id, "importers"),
-        modality="REQUIRED",
-        action="submit",
-        object=EntityRef(object_id, "Form X"),
-        deadline=duration("30", "days"),
+    result = compare_entity_ref(old, new)
+
+    assert result.changed is False
+    assert result.kind == ComparisonKind.SAME
+    assert result.reason == "SAME_ENTITY"
+
+
+def test_changed_entity_reference():
+    old = EntityRef(
+        entity_id=uuid4(),
+        raw_text="importers",
     )
 
-    result = compare_requirements(old, new)
-
-    assert result.relationship_type == "SAME"
-
-
-def test_changed_deadline_is_modified():
-    actor = entity("importers")
-    form = entity("Form X")
-
-    old = requirement(
-        actor=actor,
-        modality="REQUIRED",
-        action="submit",
-        object=form,
-        deadline=duration("30", "days"),
+    new = EntityRef(
+        entity_id=uuid4(),
+        raw_text="exporters",
     )
 
-    new = requirement(
-        actor=actor,
-        modality="REQUIRED",
-        action="submit",
-        object=form,
-        deadline=duration("45", "days"),
+    result = compare_entity_ref(old, new)
+
+    assert result.changed is True
+    assert result.kind == ComparisonKind.VALUE_CHANGED
+    assert result.reason == "ENTITY_CHANGED"
+
+
+def test_entity_reference_falls_back_to_text():
+    old = EntityRef(
+        entity_id=None,
+        raw_text="Importers",
     )
 
-    result = compare_requirements(old, new)
-
-    assert result.relationship_type == "MODIFIED"
-
-
-def test_changed_action_is_modified():
-    actor = entity("importers")
-    form = entity("Form X")
-
-    old = requirement(
-        actor=actor,
-        modality="REQUIRED",
-        action="submit",
-        object=form,
-        deadline=duration("30", "days"),
+    new = EntityRef(
+        entity_id=None,
+        raw_text="  importers  ",
     )
 
-    new = requirement(
-        actor=actor,
-        modality="REQUIRED",
-        action="file",
-        object=form,
-        deadline=duration("30", "days"),
+    result = compare_entity_ref(old, new)
+
+    assert result.changed is False
+    assert result.kind == ComparisonKind.SAME
+
+
+def test_entity_reference_presence_changed():
+    old = None
+
+    new = EntityRef(
+        entity_id=uuid4(),
+        raw_text="importers",
     )
 
-    result = compare_requirements(old, new)
+    result = compare_entity_ref(old, new)
 
-    assert result.relationship_type == "MODIFIED"
+    assert result.changed is True
+    assert result.kind == ComparisonKind.PRESENCE_CHANGED
 
 
-def test_changed_object_is_modified():
-    actor = entity("importers")
-
-    old = requirement(
-        actor=actor,
-        modality="REQUIRED",
-        action="submit",
-        object=entity("Form X"),
-        deadline=duration("30", "days"),
+def test_same_quantity():
+    result = compare_quantity(
+        quantity("35", "%"),
+        quantity("35", "%"),
     )
 
-    new = requirement(
-        actor=actor,
-        modality="REQUIRED",
-        action="submit",
-        object=entity("Form Y"),
-        deadline=duration("30", "days"),
+    assert result.changed is False
+    assert result.kind == ComparisonKind.SAME
+
+
+def test_value_changed():
+    result = compare_quantity(
+        quantity("35", "%"),
+        quantity("40", "%"),
     )
 
-    result = compare_requirements(old, new)
+    assert result.changed is True
+    assert result.kind == ComparisonKind.VALUE_CHANGED
 
-    assert result.relationship_type == "MODIFIED"
 
-
-def test_changed_actor_is_modified():
-    old = requirement(
-        actor=entity("importers"),
-        modality="REQUIRED",
-        action="submit",
-        object=entity("Form X"),
-        deadline=duration("30", "days"),
+def test_dimension_changed():
+    result = compare_quantity(
+        quantity("35", "%"),
+        quantity("35", "ETB"),
     )
 
-    new = requirement(
-        actor=entity("licensed importers"),
-        modality="REQUIRED",
-        action="submit",
-        object=entity("Form X"),
-        deadline=duration("30", "days"),
+    assert result.changed is True
+    assert result.kind == ComparisonKind.DIMENSION_CHANGED
+
+
+def test_equivalent_mass_with_different_units():
+    result = compare_quantity(
+        quantity("1", "kg"),
+        quantity("1000", "g"),
     )
 
-    result = compare_requirements(old, new)
+    assert result.changed is True
+    assert result.kind == ComparisonKind.UNIT_CHANGED
 
-    assert result.relationship_type == "MODIFIED"
 
-
-def test_changed_modality_is_modified():
-    actor = entity("importers")
-    form = entity("Form X")
-
-    old = requirement(
-        actor=actor,
-        modality="REQUIRED",
-        action="submit",
-        object=form,
-        deadline=duration("30", "days"),
+def test_different_mass_value():
+    result = compare_quantity(
+        quantity("1", "kg"),
+        quantity("900", "g"),
     )
 
-    new = requirement(
-        actor=actor,
-        modality="PERMITTED",
-        action="submit",
-        object=form,
-        deadline=duration("30", "days"),
+    assert result.changed is True
+    assert result.kind == ComparisonKind.VALUE_CHANGED
+
+
+def test_unknown_currency_conversion():
+    result = compare_quantity(
+        quantity("35", "USD"),
+        quantity("35", "ETB"),
     )
 
-    result = compare_requirements(old, new)
+    assert result.changed is True
+    assert result.kind == ComparisonKind.UNKNOWN
 
-    assert result.relationship_type == "MODIFIED"
 
-
-def test_unknown_deadline_comparison_requires_review():
-    actor_id = uuid4()
-    object_id = uuid4()
-
-    old = RequirementStructure(
-        actor=EntityRef(actor_id, "importers"),
-        modality="REQUIRED",
-        action="submit",
-        object=EntityRef(object_id, "Form X"),
-        deadline=Duration(Decimal("1"), "months"),
+def test_unrecognized_unit():
+    result = compare_quantity(
+        quantity("1", "widgets"),
+        quantity("1", "kg"),
     )
 
-    new = RequirementStructure(
-        actor=EntityRef(actor_id, "importers"),
-        modality="REQUIRED",
-        action="submit",
-        object=EntityRef(object_id, "Form X"),
-        deadline=Duration(Decimal("30"), "days"),
+    assert result.changed is True
+    assert result.kind == ComparisonKind.UNKNOWN
+
+
+def test_optional_quantity_both_absent():
+    result = compare_optional_quantity(None, None)
+
+    assert result.changed is False
+    assert result.kind == ComparisonKind.SAME
+
+
+def test_optional_quantity_added():
+    result = compare_optional_quantity(
+        None,
+        quantity("30", "kg"),
     )
 
-    result = compare_requirements(old, new)
+    assert result.changed is True
+    assert result.kind == ComparisonKind.PRESENCE_CHANGED
 
-    assert result.relationship_type == "UNKNOWN"
 
-
-def test_added_deadline_is_modified():
-    actor = entity("importers")
-    form = entity("Form X")
-
-    old = requirement(
-        actor=actor,
-        modality="REQUIRED",
-        action="submit",
-        object=form,
-        deadline=None,
+def test_optional_quantity_removed():
+    result = compare_optional_quantity(
+        quantity("30", "kg"),
+        None,
     )
 
-    new = requirement(
-        actor=actor,
-        modality="REQUIRED",
-        action="submit",
-        object=form,
-        deadline=duration("30", "days"),
+    assert result.changed is True
+    assert result.kind == ComparisonKind.PRESENCE_CHANGED
+
+
+def test_same_duration():
+    result = compare_duration(
+        duration("30", "days"),
+        duration("30", "days"),
     )
 
-    result = compare_requirements(old, new)
+    assert result.changed is False
+    assert result.kind == ComparisonKind.SAME
 
-    assert result.relationship_type == "MODIFIED"
 
-
-def test_removed_deadline_is_modified():
-    actor = entity("importers")
-    form = entity("Form X")
-
-    old = requirement(
-        actor=actor,
-        modality="REQUIRED",
-        action="submit",
-        object=form,
-        deadline=duration("30", "days"),
+def test_changed_duration_value():
+    result = compare_duration(
+        duration("30", "days"),
+        duration("45", "days"),
     )
 
-    new = requirement(
-        actor=actor,
-        modality="REQUIRED",
-        action="submit",
-        object=form,
-        deadline=None,
+    assert result.changed is True
+    assert result.kind == ComparisonKind.VALUE_CHANGED
+
+
+def test_equivalent_duration_units():
+    result = compare_duration(
+        duration("1", "days"),
+        duration("24", "hours"),
     )
 
-    result = compare_requirements(old, new)
+    assert result.changed is True
+    assert result.kind == ComparisonKind.UNIT_CHANGED
 
-    assert result.relationship_type == "MODIFIED"
+
+def test_unknown_month_to_day_conversion():
+    result = compare_duration(
+        duration("1", "months"),
+        duration("30", "days"),
+    )
+
+    assert result.changed is True
+    assert result.kind == ComparisonKind.UNKNOWN
+
+
+def test_unknown_year_to_month_conversion():
+    result = compare_duration(
+        duration("1", "years"),
+        duration("12", "months"),
+    )
+
+    assert result.changed is True
+    assert result.kind == ComparisonKind.UNKNOWN
+
+
+def test_unrecognized_duration_unit():
+    result = compare_duration(
+        duration("10", "fortnights"),
+        duration("10", "days"),
+    )
+
+    assert result.changed is True
+    assert result.kind == ComparisonKind.UNKNOWN
+
+
+def test_optional_duration_both_absent():
+    result = compare_optional_duration(None, None)
+
+    assert result.changed is False
+    assert result.kind == ComparisonKind.SAME
+
+
+def test_optional_duration_added():
+    result = compare_optional_duration(
+        None,
+        duration("30", "days"),
+    )
+
+    assert result.changed is True
+    assert result.kind == ComparisonKind.PRESENCE_CHANGED
+
+
+def test_optional_duration_removed():
+    result = compare_optional_duration(
+        duration("30", "days"),
+        None,
+    )
+
+    assert result.changed is True
+    assert result.kind == ComparisonKind.PRESENCE_CHANGED
