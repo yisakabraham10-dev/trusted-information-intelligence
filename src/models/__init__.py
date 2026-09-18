@@ -11,7 +11,8 @@ from src.models.claim_correspondence import ClaimCorrespondence
 from src.models.policy_change import PolicyChange
 from src.models.policy_change_claim import PolicyChangeClaim
 from src.models.policy_change_correspondence import PolicyChangeCorrespondence
-
+from src.models.business_profile import BusinessProfile
+from src.models.business_profile_entity import BusinessProfileEntity
 __all__ = [
     "Source",
     "Document",
@@ -26,4 +27,6 @@ __all__ = [
     "PolicyChange",
     "PolicyChangeClaim",
     "PolicyChangeCorrespondence",
+    "BusinessProfile",
+    "BusinessProfileEntity"
 ]
