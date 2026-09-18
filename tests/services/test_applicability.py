@@ -4,10 +4,10 @@ from sqlalchemy.orm import Session
 from src.db.base import Base
 from src.models.business_profile import BusinessProfile
 from src.services.applicability import (
-    ApplicabilityCondition,
     ApplicabilityService,
     ApplicabilityStatus,
 )
+from src.services.claim_structure import ApplicabilityCondition
 from src.services.BusinessProfileEntity import BusinessProfileService
 
 
@@ -174,3 +174,6 @@ def test_applicability_is_unknown_without_conditions():
         )
 
         assert result.status == ApplicabilityStatus.UNKNOWN
+        assert result.matched_conditions == ()
+        assert result.unmatched_conditions == ()
+        assert result.reason == "No applicability conditions were provided."

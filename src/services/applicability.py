@@ -6,19 +6,13 @@ from sqlalchemy.orm import Session
 
 from src.models.business_profile_entity import BusinessProfileEntity
 from src.models.entity import Entity
+from src.services.claim_structure import ApplicabilityCondition
 
 
 class ApplicabilityStatus(str, Enum):
     APPLIES = "APPLIES"
     DOES_NOT_APPLY = "DOES_NOT_APPLY"
     UNKNOWN = "UNKNOWN"
-
-
-@dataclass(frozen=True)
-class ApplicabilityCondition:
-    relation_type: str
-    entity_type: str
-    entity_names: tuple[str, ...]
 
 
 @dataclass(frozen=True)

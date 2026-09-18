@@ -28,6 +28,13 @@ class Condition:
 
 
 @dataclass(frozen=True)
+class ApplicabilityCondition:
+    relation_type: str
+    entity_type: str
+    entity_names: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class RequirementStructure:
     actor: EntityRef | None
     modality: Literal["REQUIRED", "PROHIBITED", "PERMITTED"]
@@ -35,6 +42,7 @@ class RequirementStructure:
     object: EntityRef | None
     deadline: Duration | None
     exception_ids: tuple[uuid.UUID, ...] = ()
+    applicability_conditions: tuple[ApplicabilityCondition, ...] = ()
 
 
 @dataclass(frozen=True)
