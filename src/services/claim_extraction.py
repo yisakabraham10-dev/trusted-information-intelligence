@@ -19,3 +19,14 @@ class ClaimExtractionProvider(Protocol):
         section: ParsedSection,
     ) -> tuple[ClaimExtractionCandidate, ...]:
         ...
+
+
+class ClaimExtractionService:
+    def __init__(self, provider: ClaimExtractionProvider):
+        self.provider = provider
+
+    def extract(
+        self,
+        section: ParsedSection,
+    ) -> tuple[ClaimExtractionCandidate, ...]:
+        return self.provider.extract(section)
