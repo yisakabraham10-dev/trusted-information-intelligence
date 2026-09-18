@@ -25,6 +25,9 @@ class ClaimExtractionValidator:
         if candidate.section_number is None or not candidate.section_number.strip():
             errors.append("Section number cannot be empty.")
 
+        if candidate.structure is None:
+            errors.append("Claim structure cannot be missing.")
+
         return ClaimExtractionValidationResult(
             valid=not errors,
             errors=tuple(errors),

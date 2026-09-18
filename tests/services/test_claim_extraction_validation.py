@@ -165,3 +165,17 @@ def test_empty_section_number_fails_structural_validation():
 
     assert result.valid is False
     assert "Section number cannot be empty." in result.errors
+
+
+def test_missing_structure_fails_structural_validation():
+    candidate = ClaimExtractionCandidate(
+        claim_type="REQUIREMENT",
+        text="Goods must be removed within 45 days.",
+        section_number="51(1)",
+        structure=None,
+    )
+
+    result = ClaimExtractionValidator().validate(candidate)
+
+    assert result.valid is False
+    assert "Claim structure cannot be missing." in result.errors
