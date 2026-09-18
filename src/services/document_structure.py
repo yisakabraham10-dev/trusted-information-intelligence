@@ -8,6 +8,7 @@ from src.services.document_ingestion import ExtractedPage
 class ParsedSection:
     section_number: str | None
     title: str | None
+    section_type: str
     page_start: int
     page_end: int
     raw_text: str
