@@ -9,6 +9,20 @@ from src.models.claim_evidence import ClaimEvidence
 from src.models.evidence import Evidence
 from src.models.section import Section
 from src.services.claim_creation import ClaimCreationService
+from src.services.claim_structure import EntityRef, RequirementStructure
+
+
+def _requirement_structure() -> RequirementStructure:
+    return RequirementStructure(
+        actor=None,
+        modality="REQUIRED",
+        action="remove",
+        object=EntityRef(
+            entity_id=None,
+            raw_text="Imported goods",
+        ),
+        deadline=None,
+    )
 
 
 def test_claim_creation_requires_evidence():
@@ -37,6 +51,7 @@ def test_claim_creation_requires_evidence():
                 claim_type="REQUIREMENT",
                 text="Imported goods must be removed within 45 days.",
                 evidence_ids=(),
+                structure=_requirement_structure(),
             )
         except ValueError as exc:
             assert "evidence" in str(exc).lower()
@@ -81,6 +96,7 @@ def test_claim_creation_persists_claim_and_evidence_link():
             text="Imported goods must be removed within 45 days.",
             normalized_text="imported goods remove within 45 days",
             evidence_ids=(evidence.id,),
+            structure=_requirement_structure(),
         )
 
         assert result.claim.id is not None

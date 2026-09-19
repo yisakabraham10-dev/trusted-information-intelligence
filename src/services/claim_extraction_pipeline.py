@@ -78,6 +78,7 @@ class ClaimExtractionPipeline:
                     claim_type=candidate.claim_type,
                     text=candidate.text,
                     evidence_ids=(evidence.id,),
+            structure=candidate.structure,
                 )
                 for candidate in candidates
             )

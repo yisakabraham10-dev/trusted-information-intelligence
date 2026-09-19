@@ -1,12 +1,15 @@
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, is_dataclass
 from datetime import datetime
+from decimal import Decimal
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
 from src.models.claim import Claim
 from src.models.claim_evidence import ClaimEvidence
+from src.models.claim_structure import ClaimStructure as ClaimStructureModel
 from src.models.evidence import Evidence
+from src.services.claim_structure import ClaimStructure
 
 
 @dataclass(frozen=True)
@@ -37,6 +40,7 @@ class ClaimCreationService:
         claim_type: str,
         text: str,
         evidence_ids: tuple[UUID, ...],
+        structure: ClaimStructure,
         normalized_text: str | None = None,
         effective_from: datetime | None = None,
         effective_to: datetime | None = None,
@@ -87,9 +91,58 @@ class ClaimCreationService:
                 )
             )
 
-        db.commit()
+        db.add(
+            ClaimStructureModel(
+                claim_id=claim.id,
+                structure_type=type(structure).__name__,
+                structure=self._serialize_structure(structure),
+            )
+        )
 
         return ClaimCreationResult(
             claim=claim,
             evidence=evidence_records,
         )
+
+    @staticmethod
+    def _serialize_structure(structure: ClaimStructure) -> dict:
+        value = ClaimCreationService._serialize_value(structure)
+
+        if not isinstance(value, dict):
+            raise ValueError("Claim structure must serialize to an object.")
+
+        return value
+
+    @staticmethod
+    def _serialize_value(value):
+        if is_dataclass(value) and not isinstance(value, type):
+            return {
+                key: ClaimCreationService._serialize_value(child)
+                for key, child in asdict(value).items()
+            }
+
+        if isinstance(value, UUID):
+            return str(value)
+
+        if isinstance(value, Decimal):
+            return str(value)
+
+        if isinstance(value, tuple):
+            return [
+                ClaimCreationService._serialize_value(item)
+                for item in value
+            ]
+
+        if isinstance(value, list):
+            return [
+                ClaimCreationService._serialize_value(item)
+                for item in value
+            ]
+
+        if isinstance(value, dict):
+            return {
+                key: ClaimCreationService._serialize_value(child)
+                for key, child in value.items()
+            }
+
+        return value
