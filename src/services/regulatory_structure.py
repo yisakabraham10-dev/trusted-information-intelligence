@@ -68,6 +68,14 @@ class RegulatoryStructureParser:
         r"^(\d+)\/\s*(.*)"
     )
 
+    AMHARIC_SUB_ARTICLE_PATTERN = re.compile(
+        r"^([፩-፺]+)\/\s*(.*)"
+    )
+
+    AMHARIC_TEXT_PATTERN = re.compile(
+        r"[\u1200-\u137F]"
+    )
+
     def parse(
         self,
         pages: tuple[ExtractedPage, ...],
@@ -81,6 +89,11 @@ class RegulatoryStructureParser:
         # Amharic article reference waiting to be associated with the
         # next English amendment.
         pending_amharic_article: str | None = None
+
+        # True while the parser is inside the Amharic representation
+        # of an English section. Amharic text is preserved in the source
+        # document but is not emitted as a canonical English section.
+        ignoring_amharic_block = False
 
         buffer: list[str] = []
         buffer_page_start: int | None = None
@@ -126,57 +139,26 @@ class RegulatoryStructureParser:
                 if not line:
                     continue
 
-                # ---------------------------------------------------------
-                # Detect an Amharic article reference.
-                #
-                # Example:
-                #
-                #   ፫) የአዋጁ አንቀጽ ፶፩ ...
-                #
-                # This is context for a future English amendment.
-                #
-                # We do NOT change current_article here.
-                # ---------------------------------------------------------
-
                 amharic_article = self._extract_amharic_article_number(line)
 
                 if amharic_article is not None:
                     pending_amharic_article = amharic_article
-
-                # ---------------------------------------------------------
-                # Detect an English amendment heading.
-                #
-                # Example:
-                #
-                #   3) Sub-Articles (1), (2), (7), and (8) of Article
-                #   51 of the Proclamation...
-                #
-                # or:
-                #
-                #   3) Sub-Articles (1), (2), (7), and (8) of Article
-                #
-                # where Article 51 was already established by the
-                # preceding Amharic amendment.
-                # ---------------------------------------------------------
 
                 amendment_match = self.AMENDMENT_PATTERN.match(line)
 
                 if amendment_match:
                     flush()
 
+                    ignoring_amharic_block = False
+
                     amendment_number = amendment_match.group(1)
 
-                    # First preference:
-                    # article explicitly stated in the English heading.
                     english_article = (
                         self._extract_english_article_number(line)
                     )
 
                     if english_article is not None:
                         current_article = english_article
-
-                    # Second preference:
-                    # article established by the preceding Amharic text.
                     elif pending_amharic_article is not None:
                         current_article = pending_amharic_article
 
@@ -188,36 +170,32 @@ class RegulatoryStructureParser:
 
                     continue
 
-                # ---------------------------------------------------------
-                # English sub-article.
-                #
-                # We intentionally only recognize ASCII-numbered
-                # sub-articles:
-                #
-                #   1/
-                #   2/
-                #   7/
-                #
-                # Amharic versions use Ethiopic digits:
-                #
-                #   ፩/
-                #   ፪/
-                #   ፯/
-                #
-                # Those are ignored structurally because the English
-                # version provides the canonical MVP representation.
-                # ---------------------------------------------------------
+                amharic_sub_article_match = (
+                    self.AMHARIC_SUB_ARTICLE_PATTERN.match(line)
+                )
+
+                if amharic_sub_article_match:
+                    flush()
+                    ignoring_amharic_block = True
+                    continue
+
+                if self.AMHARIC_TEXT_PATTERN.search(line):
+                    flush()
+                    ignoring_amharic_block = True
+                    continue
 
                 sub_article_match = self.SUB_ARTICLE_PATTERN.match(line)
 
-                if (
-                    sub_article_match
-                    and current_article is not None
-                ):
+                if sub_article_match:
                     flush()
+
+                    ignoring_amharic_block = False
 
                     sub_article = sub_article_match.group(1)
                     content = sub_article_match.group(2)
+
+                    if current_article is None:
+                        continue
 
                     buffer = [content]
                     buffer_page_start = page.page_number
@@ -231,9 +209,8 @@ class RegulatoryStructureParser:
 
                     continue
 
-                # ---------------------------------------------------------
-                # Continuation of the current section.
-                # ---------------------------------------------------------
+                if ignoring_amharic_block:
+                    continue
 
                 if buffer_section_type is not None:
                     buffer.append(line)
@@ -243,80 +220,27 @@ class RegulatoryStructureParser:
 
         return tuple(sections)
 
-    def _extract_english_article_number(
-        self,
-        line: str,
-    ) -> str | None:
-        """
-        Extract an English article reference.
-
-        Example:
-
-            Article 62
-
-        Returns:
-
-            "62"
-        """
-
+    def _extract_english_article_number(self, line: str) -> str | None:
         match = self.ARTICLE_REFERENCE_PATTERN.search(line)
-
         if match is None:
             return None
-
         return match.group(1)
 
-    def _extract_amharic_article_number(
-        self,
-        line: str,
-    ) -> str | None:
-        """
-        Extract an Amharic article reference.
-
-        Example:
-
-            ፫) የአዋጁ አንቀጽ ፶፩ ...
-
-        Returns:
-
-            "51"
-        """
-
+    def _extract_amharic_article_number(self, line: str) -> str | None:
         match = self.AMHARIC_ARTICLE_PATTERN.search(line)
-
         if match is None:
             return None
-
         return str(
-            self._parse_ethiopic_number(
-                match.group(1)
-            )
+            self._parse_ethiopic_number(match.group(1))
         )
 
     @staticmethod
-    def _parse_ethiopic_number(
-        value: str,
-    ) -> int:
-        """
-        Convert the Ethiopic numeral forms used by this document.
-
-        Examples:
-
-            ፩   -> 1
-            ፶   -> 50
-            ፶፩  -> 51
-            ፷፪  -> 62
-            ፹፱  -> 89
-        """
-
+    def _parse_ethiopic_number(value: str) -> int:
         total = 0
-
         for character in value:
             if character not in ETHIOPIC_DIGITS:
                 raise ValueError(
                     f"Unsupported Ethiopic numeral character: {character}"
                 )
-
             total += ETHIOPIC_DIGITS[character]
-
         return total
