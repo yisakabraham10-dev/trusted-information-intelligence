@@ -9,11 +9,21 @@ from src.db.base import Base
 from src.models.claim import Claim
 from src.models.claim_correspondence import ClaimCorrespondence
 from src.models.claim_evidence import ClaimEvidence
+from src.models.claim_structure import ClaimStructure as ClaimStructureModel
 from src.models.document_version import DocumentVersion
 from src.models.evidence import Evidence
 from src.models.policy_change import PolicyChange
+from src.models.policy_change_claim import PolicyChangeClaim
+from src.models.policy_change_correspondence import (
+    PolicyChangeCorrespondence,
+)
 from src.models.section import Section
 from src.models.source import Source
+from src.services.applicability import (
+    ApplicabilityService,
+    ApplicabilityStatus,
+)
+from src.services.BusinessProfileEntity import BusinessProfileService
 from src.services.change_detector import ChangeDetector
 from src.services.claim_correspondence import CorrespondenceEvaluator
 from src.services.claim_creation import ClaimCreationService
@@ -21,9 +31,13 @@ from src.services.claim_evidence_validation import ClaimEvidenceValidator
 from src.services.claim_extraction import ClaimExtractionCandidate
 from src.services.claim_extraction_validation import ClaimExtractionValidator
 from src.services.claim_structure import (
+    ApplicabilityCondition,
     Duration,
     EntityRef,
     RequirementStructure,
+)
+from src.services.claim_structure_deserialization import (
+    ClaimStructureDeserializer,
 )
 from src.services.document_ingestion import DocumentIngestionService
 from src.services.document_persistence import DocumentPersistenceService
@@ -141,7 +155,7 @@ def test_customs_article_51_60_to_45_day_change():
         # 7. Create a deterministic representation of the NEW
         #    claim extracted from Article 51(1)
         #
-        #    The live Gemini provider is tested separately.
+        #    The live Groq provider is tested separately.
         #    This integration test verifies the deterministic
         #    pipeline after extraction.
         # =========================================================
@@ -171,6 +185,13 @@ def test_customs_article_51_60_to_45_day_change():
                 deadline=Duration(
                     value=Decimal("45"),
                     unit="DAYS",
+                ),
+                applicability_conditions=(
+                    ApplicabilityCondition(
+                        relation_type="TRANSPORT_MODE",
+                        entity_type="TRANSPORT_MODE",
+                        entity_names=("Sea", "Land"),
+                    ),
                 ),
             ),
         )
@@ -204,10 +225,12 @@ def test_customs_article_51_60_to_45_day_change():
             text=candidate.text,
             normalized_text=candidate.text.lower(),
             evidence_ids=(new_evidence.id,),
+            structure=candidate.structure,
             effective_from=datetime(2026, 7, 23),
         )
 
         new_claim = new_result.claim
+        db.commit()
 
         assert new_claim.id is not None
         assert new_claim.claim_type == "REQUIREMENT"
@@ -281,10 +304,24 @@ def test_customs_article_51_60_to_45_day_change():
                 "customs storage within 60 days"
             ),
             evidence_ids=(old_evidence.id,),
+            structure=RequirementStructure(
+                actor=EntityRef(
+                    entity_id=None,
+                    raw_text="Imported goods transported by sea or land",
+                ),
+                modality="REQUIRED",
+                action="be removed from temporary customs storage",
+                object=None,
+                deadline=Duration(
+                    value=Decimal("60"),
+                    unit="DAYS",
+                ),
+            ),
             effective_from=datetime(2014, 7, 8),
         )
 
         old_claim = old_result.claim
+        db.commit()
 
         assert old_claim.id is not None
         assert old_claim.claim_type == "REQUIREMENT"
@@ -293,41 +330,115 @@ def test_customs_article_51_60_to_45_day_change():
         )
 
         # =========================================================
-        # 13. Build semantic structures for both claims
+        # 13. Load the semantic structures FROM THE DATABASE
+        #
+        # The claims were persisted together with their semantic
+        # structures. The comparison must use those persisted
+        # structures rather than the original in-memory objects.
         # =========================================================
-        old_structure = RequirementStructure(
-            actor=EntityRef(
-                entity_id=None,
-                raw_text="importer",
-            ),
-            modality="REQUIRED",
-            action="remove",
-            object=EntityRef(
-                entity_id=None,
-                raw_text="imported goods",
-            ),
-            deadline=Duration(
-                value=Decimal("60"),
-                unit="days",
+        old_persisted_structure = db.scalar(
+            select(ClaimStructureModel).where(
+                ClaimStructureModel.claim_id == old_claim.id
+            )
+        )
+
+        new_persisted_structure = db.scalar(
+            select(ClaimStructureModel).where(
+                ClaimStructureModel.claim_id == new_claim.id
+            )
+        )
+
+        assert old_persisted_structure is not None
+        assert new_persisted_structure is not None
+
+        old_structure = ClaimStructureDeserializer().deserialize(
+            old_persisted_structure
+        )
+
+        new_structure = ClaimStructureDeserializer().deserialize(
+            new_persisted_structure
+        )
+
+        assert isinstance(old_structure, RequirementStructure)
+        assert isinstance(new_structure, RequirementStructure)
+
+        assert new_structure.applicability_conditions == (
+            ApplicabilityCondition(
+                relation_type="TRANSPORT_MODE",
+                entity_type="TRANSPORT_MODE",
+                entity_names=("Sea", "Land"),
             ),
         )
 
-        new_structure = RequirementStructure(
-            actor=EntityRef(
-                entity_id=None,
-                raw_text="importer",
-            ),
-            modality="REQUIRED",
-            action="remove",
-            object=EntityRef(
-                entity_id=None,
-                raw_text="imported goods",
-            ),
-            deadline=Duration(
-                value=Decimal("45"),
-                unit="days",
-            ),
+        # =========================================================
+        # 13b. Evaluate applicability for a sea-import business
+        # =========================================================
+        business_profile_service = BusinessProfileService()
+
+        business_profile = business_profile_service.create(
+            db,
+            name="Sea Coffee Importer",
         )
+
+        business_profile_service.attach_entity(
+            db,
+            business_profile_id=business_profile.id,
+            entity_type="ACTIVITY",
+            name="Import",
+            relation_type="ACTIVITY",
+        )
+
+        business_profile_service.attach_entity(
+            db,
+            business_profile_id=business_profile.id,
+            entity_type="TRANSPORT_MODE",
+            name="Sea",
+            relation_type="TRANSPORT_MODE",
+        )
+
+        applicability_result = ApplicabilityService().evaluate(
+            db,
+            business_profile_id=business_profile.id,
+            conditions=new_structure.applicability_conditions,
+        )
+
+        assert applicability_result.status == ApplicabilityStatus.APPLIES
+        assert len(applicability_result.matched_conditions) == 1
+        assert applicability_result.unmatched_conditions == ()
+
+        air_business_profile = business_profile_service.create(
+            db,
+            name="Air Coffee Importer",
+        )
+
+        business_profile_service.attach_entity(
+            db,
+            business_profile_id=air_business_profile.id,
+            entity_type="ACTIVITY",
+            name="Import",
+            relation_type="ACTIVITY",
+        )
+
+        business_profile_service.attach_entity(
+            db,
+            business_profile_id=air_business_profile.id,
+            entity_type="TRANSPORT_MODE",
+            name="Air",
+            relation_type="TRANSPORT_MODE",
+        )
+
+        air_applicability_result = ApplicabilityService().evaluate(
+            db,
+            business_profile_id=air_business_profile.id,
+            conditions=new_structure.applicability_conditions,
+        )
+
+        assert (
+            air_applicability_result.status
+            == ApplicabilityStatus.DOES_NOT_APPLY
+        )
+        assert air_applicability_result.matched_conditions == ()
+        assert len(air_applicability_result.unmatched_conditions) == 1
 
         # =========================================================
         # 14. Determine claim correspondence
@@ -349,7 +460,7 @@ def test_customs_article_51_60_to_45_day_change():
         )
 
         assert (
-            "VALUE_CHANGED: 60 days -> 45 days"
+            "VALUE_CHANGED: 60 DAYS -> 45 DAYS"
             in correspondence_result.changes
         )
 
@@ -382,8 +493,8 @@ def test_customs_article_51_60_to_45_day_change():
 
         assert change_result is not None
         assert change_result.change_type == "MODIFIED"
-        assert "60 days" in change_result.summary
-        assert "45 days" in change_result.summary
+        assert "60 DAYS" in change_result.summary
+        assert "45 DAYS" in change_result.summary
 
         # =========================================================
         # 17. Persist PolicyChange
@@ -418,6 +529,42 @@ def test_customs_article_51_60_to_45_day_change():
         assert policy_change.effective_date == datetime(
             2026, 7, 23
         )
+
+        # =========================================================
+        # 19. Verify PolicyChange -> claims/correspondence links
+        # =========================================================
+        old_policy_claim_link = db.scalar(
+            select(PolicyChangeClaim).where(
+                PolicyChangeClaim.policy_change_id
+                == policy_change.id,
+                PolicyChangeClaim.claim_id
+                == old_claim.id,
+                PolicyChangeClaim.role == "OLD",
+            )
+        )
+
+        new_policy_claim_link = db.scalar(
+            select(PolicyChangeClaim).where(
+                PolicyChangeClaim.policy_change_id
+                == policy_change.id,
+                PolicyChangeClaim.claim_id
+                == new_claim.id,
+                PolicyChangeClaim.role == "NEW",
+            )
+        )
+
+        correspondence_link = db.scalar(
+            select(PolicyChangeCorrespondence).where(
+                PolicyChangeCorrespondence.policy_change_id
+                == policy_change.id,
+                PolicyChangeCorrespondence.correspondence_id
+                == correspondence.id,
+            )
+        )
+
+        assert old_policy_claim_link is not None
+        assert new_policy_claim_link is not None
+        assert correspondence_link is not None
 
         # =========================================================
         # 19. Verify claim -> evidence provenance
@@ -487,6 +634,6 @@ def test_customs_article_51_60_to_45_day_change():
         # =========================================================
         # 22. Verify the final policy-change summary
         # =========================================================
-        assert "VALUE_CHANGED: 60 days -> 45 days" in (
+        assert "VALUE_CHANGED: 60 DAYS -> 45 DAYS" in (
             change_result.summary
         )
