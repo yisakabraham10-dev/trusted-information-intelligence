@@ -17,6 +17,9 @@ from src.models.source import Source
 from src.services.change_detector import ChangeDetector
 from src.services.claim_correspondence import CorrespondenceEvaluator
 from src.services.claim_creation import ClaimCreationService
+from src.services.claim_evidence_validation import ClaimEvidenceValidator
+from src.services.claim_extraction import ClaimExtractionCandidate
+from src.services.claim_extraction_validation import ClaimExtractionValidator
 from src.services.claim_structure import (
     Duration,
     EntityRef,
@@ -24,8 +27,8 @@ from src.services.claim_structure import (
 )
 from src.services.document_ingestion import DocumentIngestionService
 from src.services.document_persistence import DocumentPersistenceService
-from src.services.regulatory_structure import RegulatoryStructureParser
 from src.services.policy_change_service import PolicyChangeService
+from src.services.regulatory_structure import RegulatoryStructureParser
 
 
 FIXTURE = Path(
@@ -56,7 +59,6 @@ def test_customs_article_51_60_to_45_day_change():
         # 2. Extract the real 2026 Customs Proclamation
         # =========================================================
         ingestion = DocumentIngestionService()
-
         ingested_document = ingestion.extract(FIXTURE)
 
         assert len(ingested_document.pages) == 18
@@ -134,24 +136,73 @@ def test_customs_article_51_60_to_45_day_change():
 
         assert new_evidence is not None
         assert "forty-five days" in new_evidence.quote.lower()
+
         # =========================================================
-        # 7. Create the NEW 2026 claim
+        # 7. Create a deterministic representation of the NEW
+        #    claim extracted from Article 51(1)
+        #
+        #    The live Gemini provider is tested separately.
+        #    This integration test verifies the deterministic
+        #    pipeline after extraction.
+        # =========================================================
+        parsed_new_section = next(
+            section
+            for section in parsed_sections
+            if section.section_number == "51(1)"
+        )
+
+        candidate = ClaimExtractionCandidate(
+            claim_type="REQUIREMENT",
+            text=(
+                "Any goods imported by sea or land must be removed "
+                "from the temporary customs storage within forty-five "
+                "days from the date of entry into the storage after "
+                "the necessary customs formalities have been completed."
+            ),
+            section_number="51(1)",
+            structure=RequirementStructure(
+                actor=EntityRef(
+                    entity_id=None,
+                    raw_text="Any goods imported by sea or land",
+                ),
+                modality="REQUIRED",
+                action="be removed from the temporary customs storage",
+                object=None,
+                deadline=Duration(
+                    value=Decimal("45"),
+                    unit="DAYS",
+                ),
+            ),
+        )
+
+        extraction_validation = ClaimExtractionValidator().validate(
+            candidate
+        )
+
+        assert extraction_validation.valid, (
+            extraction_validation.errors
+        )
+
+        evidence_validation = ClaimEvidenceValidator().validate(
+            candidate,
+            parsed_new_section,
+        )
+
+        assert evidence_validation.supported, (
+            evidence_validation.errors
+        )
+
+        # =========================================================
+        # 8. Persist the NEW 2026 claim
         # =========================================================
         claim_service = ClaimCreationService()
 
         new_result = claim_service.create_claim(
             db,
             section_id=new_section.id,
-            claim_type="REQUIREMENT",
-            text=(
-                "Imported goods transported by sea or land "
-                "must be removed from temporary customs "
-                "storage within 45 days from the date of entry."
-            ),
-            normalized_text=(
-                "imported goods sea land remove temporary "
-                "customs storage within 45 days"
-            ),
+            claim_type=candidate.claim_type,
+            text=candidate.text,
+            normalized_text=candidate.text.lower(),
             evidence_ids=(new_evidence.id,),
             effective_from=datetime(2026, 7, 23),
         )
@@ -165,10 +216,10 @@ def test_customs_article_51_60_to_45_day_change():
         )
 
         # =========================================================
-        # 8. Create the OLD 2014 document version
+        # 9. Create the OLD 2014 document version
         #
-        # This is currently a source-backed test representation
-        # of Article 51(1)'s previous 60-day rule.
+        # This is a source-backed test representation of the
+        # previous Article 51(1) 60-day rule.
         # =========================================================
         old_version = DocumentVersion(
             document_id=persisted.document.id,
@@ -183,7 +234,7 @@ def test_customs_article_51_60_to_45_day_change():
         db.flush()
 
         # =========================================================
-        # 9. Create the OLD Article 51(1) section
+        # 10. Create the OLD Article 51(1) section
         # =========================================================
         old_section = Section(
             document_version_id=old_version.id,
@@ -202,7 +253,7 @@ def test_customs_article_51_60_to_45_day_change():
         db.flush()
 
         # =========================================================
-        # 10. Create evidence for the OLD claim
+        # 11. Create evidence for the OLD claim
         # =========================================================
         old_evidence = Evidence(
             section_id=old_section.id,
@@ -214,7 +265,7 @@ def test_customs_article_51_60_to_45_day_change():
         db.commit()
 
         # =========================================================
-        # 11. Create the OLD 2014 claim
+        # 12. Create the OLD 2014 claim
         # =========================================================
         old_result = claim_service.create_claim(
             db,
@@ -242,7 +293,7 @@ def test_customs_article_51_60_to_45_day_change():
         )
 
         # =========================================================
-        # 12. Build semantic structures for both claims
+        # 13. Build semantic structures for both claims
         # =========================================================
         old_structure = RequirementStructure(
             actor=EntityRef(
@@ -279,31 +330,31 @@ def test_customs_article_51_60_to_45_day_change():
         )
 
         # =========================================================
-        # 13. Compare OLD vs NEW
+        # 14. Determine claim correspondence
         # =========================================================
-        evaluator = CorrespondenceEvaluator()
+        correspondence_evaluator = CorrespondenceEvaluator()
 
-        correspondence_result = evaluator.evaluate(
+        correspondence_result = correspondence_evaluator.evaluate(
             old_claim,
             new_claim,
             old_structure=old_structure,
             new_structure=new_structure,
         )
 
-        assert (
-            correspondence_result.relationship_type
-            == "MODIFIED"
-        )
-
+        assert correspondence_result.relationship_type == "MODIFIED"
+        assert correspondence_result.confidence == 1.0
         assert (
             correspondence_result.method
             == "REQUIREMENT_STRUCTURE"
         )
 
-        assert correspondence_result.confidence == 1.0
+        assert (
+            "VALUE_CHANGED: 60 days -> 45 days"
+            in correspondence_result.changes
+        )
 
         # =========================================================
-        # 14. Persist ClaimCorrespondence
+        # 15. Persist the claim correspondence
         # =========================================================
         correspondence = ClaimCorrespondence(
             claim_a_id=old_claim.id,
@@ -313,7 +364,6 @@ def test_customs_article_51_60_to_45_day_change():
             ),
             confidence=correspondence_result.confidence,
             method=correspondence_result.method,
-            status="CONFIRMED",
         )
 
         db.add(correspondence)
@@ -322,83 +372,121 @@ def test_customs_article_51_60_to_45_day_change():
         assert correspondence.id is not None
 
         # =========================================================
-        # 15. Detect the policy change
+        # 16. Detect the semantic policy change
         # =========================================================
         detector = ChangeDetector()
 
-        detection = detector.detect(
+        change_result = detector.detect(
             correspondence_result,
-            old_claim_exists=True,
-            new_claim_exists=True,
         )
 
-        assert detection is not None
-        assert detection.change_type == "MODIFIED"
+        assert change_result is not None
+        assert change_result.change_type == "MODIFIED"
+        assert "60 days" in change_result.summary
+        assert "45 days" in change_result.summary
 
         # =========================================================
-        # 16. Persist PolicyChange
+        # 17. Persist PolicyChange
         # =========================================================
         policy_service = PolicyChangeService()
 
-        persistence_result = policy_service.create(
+        policy_result = policy_service.create(
             db,
-            detection=detection,
+            detection=change_result,
+            claim_correspondence=correspondence,
             old_claim=old_claim,
             new_claim=new_claim,
-            claim_correspondence=correspondence,
             effective_date=datetime(2026, 7, 23),
         )
 
-        assert persistence_result.policy_change_id is not None
-        assert persistence_result.change_type == "MODIFIED"
+        assert policy_result.policy_change_id is not None
+        assert policy_result.change_type == "MODIFIED"
 
         # =========================================================
-        # 17. Verify the PolicyChange
+        # 18. Load the persisted PolicyChange
         # =========================================================
-        stored_change = db.scalar(
+        policy_change = db.scalar(
             select(PolicyChange).where(
                 PolicyChange.id
-                == persistence_result.policy_change_id
+                == policy_result.policy_change_id
             )
         )
 
-        assert stored_change is not None
-        assert stored_change.change_type == "MODIFIED"
-        assert stored_change.effective_date == datetime(
+        assert policy_change is not None
+        assert policy_change.change_type == "MODIFIED"
+        assert policy_change.summary == change_result.summary
+        assert policy_change.effective_date == datetime(
             2026, 7, 23
         )
 
         # =========================================================
-        # 18. Verify provenance:
-        #
-        # PolicyChange
-        #      ↓
-        # ClaimCorrespondence
-        #      ↓
-        # New Claim
-        #      ↓
-        # ClaimEvidence
-        #      ↓
-        # Evidence
-        #      ↓
-        # Article 51(1)
-        #      ↓
-        # 2026 Customs Proclamation
+        # 19. Verify claim -> evidence provenance
         # =========================================================
-        new_claim_evidence = db.scalar(
+        persisted_claim_evidence = db.scalar(
             select(ClaimEvidence).where(
                 ClaimEvidence.claim_id == new_claim.id,
                 ClaimEvidence.evidence_id == new_evidence.id,
             )
         )
 
-        assert new_claim_evidence is not None
-        assert new_claim_evidence.relation_type == "SUPPORTS"
-        assert new_claim_evidence.strength == 1.0
+        assert persisted_claim_evidence is not None
+        assert (
+            persisted_claim_evidence.relation_type
+            == "SUPPORTS"
+        )
 
         # =========================================================
-        # 19. Verify the final change summary
+        # 20. Verify evidence -> section -> document provenance
         # =========================================================
-        assert "60 days" in stored_change.summary
-        assert "45 days" in stored_change.summary
+        assert new_evidence.section_id == new_section.id
 
+        assert (
+            new_section.document_version_id
+            == persisted.document_version.id
+        )
+
+        persisted_document_version = db.scalar(
+            select(DocumentVersion).where(
+                DocumentVersion.id
+                == persisted.document_version.id
+            )
+        )
+
+        assert persisted_document_version is not None
+        assert (
+            persisted_document_version.version_label
+            == "1425/2026"
+        )
+
+        # =========================================================
+        # 21. Verify the detected semantic change
+        # =========================================================
+        assert old_structure.deadline is not None
+        assert new_structure.deadline is not None
+
+        assert (
+            old_structure.deadline.value
+            == Decimal("60")
+        )
+
+        assert (
+            new_structure.deadline.value
+            == Decimal("45")
+        )
+
+        assert (
+            old_structure.deadline.unit.lower()
+            == "days"
+        )
+
+        assert (
+            new_structure.deadline.unit.lower()
+            == "days"
+        )
+
+        # =========================================================
+        # 22. Verify the final policy-change summary
+        # =========================================================
+        assert "VALUE_CHANGED: 60 days -> 45 days" in (
+            change_result.summary
+        )
