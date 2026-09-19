@@ -12,6 +12,7 @@ dependencies = [
     "alembic",
     "pydantic-settings",
     "google-genai",
+    "groq",
 ]
 
 [project.optional-dependencies]
