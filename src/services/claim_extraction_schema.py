@@ -92,3 +92,8 @@ class ClaimExtractionSchema(BaseModel):
     applicability: ApplicabilityStructureSchema | None = None
     exception: ExceptionStructureSchema | None = None
     penalty: PenaltyStructureSchema | None = None
+
+class ClaimExtractionListSchema(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    claims: list[ClaimExtractionSchema]

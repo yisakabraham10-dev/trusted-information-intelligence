@@ -109,7 +109,8 @@ def test_real_groq_claim_extraction_pipeline_persists_claim():
             parsed_section=parsed_section,
         )
 
-        claim = result.claim
+        assert len(result) == 1
+        claim = result[0].claim
 
         assert claim.id is not None
         assert claim.section_id == section.id
@@ -117,8 +118,8 @@ def test_real_groq_claim_extraction_pipeline_persists_claim():
         assert claim.text
         assert "forty-five days" in claim.text.lower()
 
-        assert len(result.evidence) == 1
-        assert result.evidence[0].id == evidence.id
+        assert len(result[0].evidence) == 1
+        assert result[0].evidence[0].id == evidence.id
 
         claim_evidence = db.scalar(
             select(ClaimEvidence).where(

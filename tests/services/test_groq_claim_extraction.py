@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 
 from src.config import Settings
 from src.services.claim_extraction_schema import (
+    ClaimExtractionListSchema,
     ClaimExtractionSchema,
     DurationSchema,
     EntityRefSchema,
@@ -57,11 +58,15 @@ def _build_structured_output() -> ClaimExtractionSchema:
 
 
 def _build_fake_response(structured_output: ClaimExtractionSchema) -> MagicMock:
+    response = ClaimExtractionListSchema(
+        claims=[structured_output]
+    )
+
     fake_response = MagicMock()
     fake_response.choices = [
         MagicMock(
             message=MagicMock(
-                content=structured_output.model_dump_json()
+                content=response.model_dump_json()
             )
         )
     ]
