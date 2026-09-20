@@ -3,6 +3,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from src.api.claims import router as claims_router
+from src.api.policy_changes import router as policy_changes_router
 from src.db.dependencies import get_db
 
 
@@ -13,6 +14,7 @@ app = FastAPI(
 
 
 app.include_router(claims_router)
+app.include_router(policy_changes_router)
 
 
 @app.get("/health")
