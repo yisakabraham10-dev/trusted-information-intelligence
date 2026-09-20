@@ -4,12 +4,14 @@ from sqlalchemy.orm import Session
 
 from src.models.business_profile import BusinessProfile
 from src.models.business_profile_entity import BusinessProfileEntity
+from src.models.business_profile_source import BusinessProfileSource
 from src.services.entity_resolution import EntityResolutionService
 
 
 class BusinessProfileService:
     """
-    Manage business profiles and their relationships to canonical entities.
+    Manage business profiles and their relationships to canonical entities
+    and tracked sources.
 
     The service does not commit transactions.
     The caller owns the transaction boundary.
@@ -88,3 +90,34 @@ class BusinessProfileService:
         db.flush()
 
         return profile_entity
+
+    def track_source(
+        self,
+        db: Session,
+        *,
+        business_profile_id: UUID,
+        source_id: UUID,
+    ) -> BusinessProfileSource:
+        existing = (
+            db.query(BusinessProfileSource)
+            .filter(
+                BusinessProfileSource.business_profile_id
+                == business_profile_id,
+                BusinessProfileSource.source_id
+                == source_id,
+            )
+            .one_or_none()
+        )
+
+        if existing is not None:
+            return existing
+
+        profile_source = BusinessProfileSource(
+            business_profile_id=business_profile_id,
+            source_id=source_id,
+        )
+
+        db.add(profile_source)
+        db.flush()
+
+        return profile_source

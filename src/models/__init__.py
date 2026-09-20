@@ -13,6 +13,8 @@ from src.models.policy_change_claim import PolicyChangeClaim
 from src.models.policy_change_correspondence import PolicyChangeCorrespondence
 from src.models.business_profile import BusinessProfile
 from src.models.business_profile_entity import BusinessProfileEntity
+from src.models.business_profile_source import BusinessProfileSource
+
 __all__ = [
     "Source",
     "Document",
@@ -23,10 +25,11 @@ __all__ = [
     "ClaimEvidence",
     "Entity",
     "ClaimEntity",
-    "ClaimCorrespondence", 
+    "ClaimCorrespondence",
     "PolicyChange",
     "PolicyChangeClaim",
     "PolicyChangeCorrespondence",
     "BusinessProfile",
-    "BusinessProfileEntity"
+    "BusinessProfileEntity",
+    "BusinessProfileSource",
 ]
