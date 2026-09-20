@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 
+from src.domain.exceptions import ValidationError
 from src.models.entity import Entity
 
 
@@ -25,7 +26,7 @@ class EntityResolutionService:
         normalized = " ".join(name.strip().split())
 
         if not normalized:
-            raise ValueError("Entity name cannot be empty.")
+            raise ValidationError("Entity name cannot be empty.")
 
         return normalized.upper()
 

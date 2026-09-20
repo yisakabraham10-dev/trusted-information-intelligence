@@ -3,6 +3,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from src.db.base import Base
+from src.domain.exceptions import ValidationError
 from src.models.business_profile import BusinessProfile
 from src.models.business_profile_entity import BusinessProfileEntity
 from src.models.business_profile_source import BusinessProfileSource
@@ -39,7 +40,7 @@ def test_create_business_profile_rejects_empty_name():
         service = BusinessProfileService()
 
         with pytest.raises(
-            ValueError,
+            ValidationError,
             match="Business profile name cannot be empty",
         ):
             service.create(

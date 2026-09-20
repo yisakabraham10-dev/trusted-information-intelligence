@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+from src.domain.exceptions import InvalidStateError
 from src.services.claim_correspondence import CorrespondenceResult
 
 
@@ -18,7 +19,7 @@ class ChangeDetector:
     ) -> ChangeDetectionResult | None:
 
         if not old_claim_exists and not new_claim_exists:
-            raise ValueError(
+            raise InvalidStateError(
                 "At least one claim must exist."
             )
 

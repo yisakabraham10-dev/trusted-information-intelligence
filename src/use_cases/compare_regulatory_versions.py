@@ -5,6 +5,8 @@ from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from src.domain.exceptions import InvalidStateError, NotFoundError
+
 from src.models.claim import Claim
 from src.models.claim_correspondence import ClaimCorrespondence
 from src.models.claim_evidence import ClaimEvidence
@@ -67,7 +69,7 @@ class CompareRegulatoryVersions:
         reason_claim_id: uuid.UUID | None = None,
     ) -> CompareRegulatoryVersionsResult:
         if old_claim_id is None and new_claim_id is None:
-            raise ValueError(
+            raise InvalidStateError(
                 "At least one claim must be provided."
             )
 
@@ -75,12 +77,12 @@ class CompareRegulatoryVersions:
         new_claim = self._get_claim(session, new_claim_id)
 
         if old_claim_id is not None and old_claim is None:
-            raise ValueError(
+            raise NotFoundError(
                 f"Old claim not found: {old_claim_id}"
             )
 
         if new_claim_id is not None and new_claim is None:
-            raise ValueError(
+            raise NotFoundError(
                 f"New claim not found: {new_claim_id}"
             )
 
@@ -124,13 +126,13 @@ class CompareRegulatoryVersions:
                 )
 
                 if old_structure is None:
-                    raise ValueError(
+                    raise NotFoundError(
                         f"Semantic structure not found for old claim: "
                         f"{old_claim.id}"
                     )
 
                 if new_structure is None:
-                    raise ValueError(
+                    raise NotFoundError(
                         f"Semantic structure not found for new claim: "
                         f"{new_claim.id}"
                     )

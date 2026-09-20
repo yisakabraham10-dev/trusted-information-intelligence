@@ -5,6 +5,7 @@ from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from src.domain.exceptions import InvalidStateError
 from src.models.claim import Claim
 from src.models.claim_correspondence import ClaimCorrespondence
 from src.models.policy_change import PolicyChange
@@ -41,7 +42,7 @@ class PolicyChangeService:
         effective_date: datetime | None = None,
     ) -> PolicyChangePersistenceResult:
         if old_claim is None and new_claim is None:
-            raise ValueError(
+            raise InvalidStateError(
                 "At least one claim must be provided."
             )
 

@@ -4,9 +4,17 @@ from uuid import UUID
 from src.models.claim_structure import ClaimStructure as ClaimStructureModel
 from src.services.claim_structure import (
     ApplicabilityCondition,
+    ApplicabilityStructure,
+    Condition,
+    DefinitionStructure,
     Duration,
     EntityRef,
+    ExceptionStructure,
+    FeeStructure,
+    PenaltyStructure,
+    Quantity,
     RequirementStructure,
+    ClaimStructure,
 )
 
 
@@ -16,72 +24,159 @@ class ClaimStructureDeserializer:
     def deserialize(
         self,
         persisted: ClaimStructureModel,
-    ) -> RequirementStructure:
-        if persisted.structure_type != "RequirementStructure":
+    ) -> ClaimStructure:
+        builders = {
+            "RequirementStructure": self._requirement,
+            "FeeStructure": self._fee,
+            "DefinitionStructure": self._definition,
+            "ApplicabilityStructure": self._applicability,
+            "ExceptionStructure": self._exception,
+            "PenaltyStructure": self._penalty,
+        }
+
+        builder = builders.get(persisted.structure_type)
+
+        if builder is None:
             raise ValueError(
                 f"Unsupported claim structure type: "
                 f"{persisted.structure_type}"
             )
 
-        data = persisted.structure
+        return builder(persisted.structure)
 
-        actor_data = data["actor"]
-        object_data = data["object"]
-        deadline_data = data["deadline"]
+    @staticmethod
+    def _entity_ref(data: dict | None) -> EntityRef | None:
+        if data is None:
+            return None
 
-        actor = (
-            EntityRef(
-                entity_id=(
-                    UUID(actor_data["entity_id"])
-                    if actor_data["entity_id"] is not None
-                    else None
-                ),
-                raw_text=actor_data["raw_text"],
-            )
-            if actor_data is not None
-            else None
+        return EntityRef(
+            entity_id=(
+                UUID(data["entity_id"])
+                if data["entity_id"] is not None
+                else None
+            ),
+            raw_text=data["raw_text"],
         )
 
-        object_ = (
-            EntityRef(
-                entity_id=(
-                    UUID(object_data["entity_id"])
-                    if object_data["entity_id"] is not None
-                    else None
-                ),
-                raw_text=object_data["raw_text"],
-            )
-            if object_data is not None
-            else None
+    @staticmethod
+    def _duration(data: dict | None) -> Duration | None:
+        if data is None:
+            return None
+
+        return Duration(
+            value=Decimal(str(data["value"])),
+            unit=data["unit"],
         )
 
-        deadline = (
-            Duration(
-                value=Decimal(str(deadline_data["value"])),
-                unit=deadline_data["unit"],
-            )
-            if deadline_data is not None
-            else None
+    @staticmethod
+    def _quantity(data: dict) -> Quantity:
+        return Quantity(
+            value=Decimal(str(data["value"])),
+            unit=data["unit"],
         )
 
-        applicability_conditions = tuple(
-            ApplicabilityCondition(
-                relation_type=condition["relation_type"],
-                entity_type=condition["entity_type"],
-                entity_names=tuple(condition["entity_names"]),
-            )
-            for condition in data.get("applicability_conditions", [])
+    @staticmethod
+    def _applicability_condition(
+        data: dict,
+    ) -> ApplicabilityCondition:
+        return ApplicabilityCondition(
+            relation_type=data["relation_type"],
+            entity_type=data["entity_type"],
+            entity_names=tuple(data["entity_names"]),
         )
 
+    @classmethod
+    def _requirement(
+        cls,
+        data: dict,
+    ) -> RequirementStructure:
         return RequirementStructure(
-            actor=actor,
+            actor=cls._entity_ref(data["actor"]),
             modality=data["modality"],
             action=data["action"],
-            object=object_,
-            deadline=deadline,
+            object=cls._entity_ref(data["object"]),
+            deadline=cls._duration(data["deadline"]),
             exception_ids=tuple(
                 UUID(value)
                 for value in data.get("exception_ids", [])
             ),
-            applicability_conditions=applicability_conditions,
+            applicability_conditions=tuple(
+                cls._applicability_condition(condition)
+                for condition in data.get(
+                    "applicability_conditions",
+                    [],
+                )
+            ),
+        )
+
+    @classmethod
+    def _fee(
+        cls,
+        data: dict,
+    ) -> FeeStructure:
+        return FeeStructure(
+            subject=cls._entity_ref(data["subject"]),
+            attribute=data["attribute"],
+            value=cls._quantity(data["value"]),
+        )
+
+    @classmethod
+    def _definition(
+        cls,
+        data: dict,
+    ) -> DefinitionStructure:
+        return DefinitionStructure(
+            term=data["term"],
+            definition=data["definition"],
+        )
+
+    @classmethod
+    def _applicability(
+        cls,
+        data: dict,
+    ) -> ApplicabilityStructure:
+        condition = data["condition"]
+
+        return ApplicabilityStructure(
+            subject=cls._entity_ref(data["subject"]),
+            condition=(
+                Condition(raw_text=condition)
+                if condition is not None
+                else None
+            ),
+        )
+
+    @staticmethod
+    def _exception(
+        data: dict,
+    ) -> ExceptionStructure:
+        condition = data["condition"]
+
+        if isinstance(condition, dict):
+            condition = condition["raw_text"]
+
+        return ExceptionStructure(
+            modifies_claim_id=(
+                UUID(data["modifies_claim_id"])
+                if data["modifies_claim_id"] is not None
+                else None
+            ),
+            condition=Condition(
+                raw_text=condition,
+            ),
+        )
+
+    @classmethod
+    def _penalty(
+        cls,
+        data: dict,
+    ) -> PenaltyStructure:
+        consequence = data["consequence"]
+
+        if isinstance(consequence, dict):
+            consequence = cls._quantity(consequence)
+
+        return PenaltyStructure(
+            violation_description=data["violation_description"],
+            consequence=consequence,
         )

@@ -3,6 +3,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from src.db.base import Base
+from src.domain.exceptions import ValidationError
+from src.domain.exceptions import ValidationError
 from src.models.entity import Entity
 from src.services.entity_resolution import EntityResolutionService
 
@@ -101,7 +103,7 @@ def test_empty_name_is_rejected():
         service = EntityResolutionService()
 
         with pytest.raises(
-            ValueError,
+            ValidationError,
             match="Entity name cannot be empty",
         ):
             service.resolve(

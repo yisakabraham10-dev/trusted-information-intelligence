@@ -1,5 +1,6 @@
 import pytest
 
+from src.domain.exceptions import InvalidStateError
 from src.services.change_detector import ChangeDetector
 from src.services.claim_correspondence import CorrespondenceResult
 
@@ -75,7 +76,7 @@ def test_possible_conflict_does_not_create_change_yet():
 
 
 def test_both_claims_missing_is_invalid():
-    with pytest.raises(ValueError):
+    with pytest.raises(InvalidStateError):
         ChangeDetector().detect(
             correspondence("UNRELATED"),
             old_claim_exists=False,

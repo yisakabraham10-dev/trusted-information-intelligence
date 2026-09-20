@@ -3,6 +3,8 @@ from pathlib import Path
 
 from pypdf import PdfReader
 
+from src.domain.exceptions import ValidationError
+
 
 @dataclass(frozen=True)
 class ExtractedPage:
@@ -39,7 +41,7 @@ class DocumentIngestionService:
             )
 
         if path.suffix.lower() != ".pdf":
-            raise ValueError(
+            raise ValidationError(
                 f"Expected a PDF file, got: {path.suffix}"
             )
 

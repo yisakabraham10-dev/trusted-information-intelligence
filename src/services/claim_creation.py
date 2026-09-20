@@ -5,6 +5,8 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from src.domain.exceptions import ValidationError
+
 from src.models.claim import Claim
 from src.models.claim_evidence import ClaimEvidence
 from src.models.claim_structure import ClaimStructure as ClaimStructureModel
@@ -47,10 +49,10 @@ class ClaimCreationService:
         status: str = "ACTIVE",
     ) -> ClaimCreationResult:
         if not text.strip():
-            raise ValueError("Claim text cannot be empty.")
+            raise ValidationError("Claim text cannot be empty.")
 
         if not evidence_ids:
-            raise ValueError(
+            raise ValidationError(
                 "A claim must have at least one supporting evidence record."
             )
 
@@ -64,7 +66,7 @@ class ClaimCreationService:
         )
 
         if len(evidence_records) != len(set(evidence_ids)):
-            raise ValueError(
+            raise ValidationError(
                 "Every evidence record must exist and belong to the claim section."
             )
 
@@ -109,7 +111,7 @@ class ClaimCreationService:
         value = ClaimCreationService._serialize_value(structure)
 
         if not isinstance(value, dict):
-            raise ValueError("Claim structure must serialize to an object.")
+            raise ValidationError("Claim structure must serialize to an object.")
 
         return value
 

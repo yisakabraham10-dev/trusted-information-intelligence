@@ -5,6 +5,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
 from src.db.base import Base
+from src.domain.exceptions import ConflictError
 from src.models.claim import Claim
 from src.models.claim_entity import ClaimEntity
 from src.models.entity import Entity
@@ -217,7 +218,10 @@ def test_conflicting_relationship_type_is_rejected():
             relation_type="ACTOR",
         )
 
-        with pytest.raises(ValueError, match="different relation type"):
+        with pytest.raises(
+            ConflictError,
+            match="different relation type",
+        ):
             service.attach_entity(
                 db,
                 claim_id=claim.id,

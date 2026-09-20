@@ -2,6 +2,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from src.domain.exceptions import ValidationError
 from src.models.business_profile import BusinessProfile
 from src.models.business_profile_entity import BusinessProfileEntity
 from src.models.business_profile_source import BusinessProfileSource
@@ -35,7 +36,7 @@ class BusinessProfileService:
         normalized_name = name.strip()
 
         if not normalized_name:
-            raise ValueError(
+            raise ValidationError(
                 "Business profile name cannot be empty."
             )
 

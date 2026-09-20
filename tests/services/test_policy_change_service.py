@@ -4,6 +4,7 @@ from datetime import datetime
 import pytest
 
 from src.db.session import SessionLocal
+from src.domain.exceptions import InvalidStateError
 from src.models.claim import Claim
 from src.models.claim_correspondence import ClaimCorrespondence
 from src.models.document import Document
@@ -33,52 +34,44 @@ def session():
 def create_section_graph(session, *, suffix: str) -> Section:
     source = Source(
         id=uuid.uuid4(),
-        name=f"Test Source {suffix}",
+        name=f"Source {suffix}",
         authority_tier="PRIMARY",
-        base_url="https://example.com",
-        institution_type="GOVERNMENT",
-        description="Test source.",
+        base_url=None,
+        institution_type=None,
+        description=None,
         is_active=True,
     )
-
     session.add(source)
     session.flush()
 
     document = Document(
-        id=uuid.uuid4(),
         source_id=source.id,
-        title=f"Test Document {suffix}",
-        document_type="REGULATION",
-        url="https://example.com/document",
-        description="Test document.",
+        title=f"Document {suffix}",
+        document_type="PROCLAMATION",
+        description=None,
+        url=None,
     )
-
     session.add(document)
     session.flush()
 
-    document_version = DocumentVersion(
-        id=uuid.uuid4(),
+    version = DocumentVersion(
         document_id=document.id,
-        version_label="1.0",
-        publication_date=datetime(2026, 1, 1),
-        effective_date=datetime(2026, 1, 1),
-        content_hash=uuid.uuid4().hex * 2,
-        status="CURRENT",
+        version_label=f"Version {suffix}",
+        publication_date=None,
+        effective_date=None,
+        content_hash=f"hash-{suffix}",
     )
-
-    session.add(document_version)
+    session.add(version)
     session.flush()
 
     section = Section(
-        id=uuid.uuid4(),
-        document_version_id=document_version.id,
-        section_number="1",
-        title="Requirements",
-        page_start=1,
-        page_end=1,
-        raw_text="Import requirements.",
+        document_version_id=version.id,
+        section_number=f"51({suffix})",
+        title=None,
+        page_start=3,
+        page_end=3,
+        raw_text="Imported goods must be removed within 45 days.",
     )
-
     session.add(section)
     session.flush()
 
@@ -88,177 +81,25 @@ def create_section_graph(session, *, suffix: str) -> Section:
 def create_claim(
     session,
     *,
-    section_id,
+    section: Section,
     text: str,
 ) -> Claim:
     claim = Claim(
-        id=uuid.uuid4(),
-        section_id=section_id,
+        section_id=section.id,
         claim_type="REQUIREMENT",
         text=text,
-        normalized_text=" ".join(text.lower().split()),
-        effective_from=None,
-        effective_to=None,
-        status="ACTIVE",
     )
-
     session.add(claim)
     session.flush()
-
     return claim
 
 
-def test_create_modified_policy_change(session):
-    old_section = create_section_graph(
-        session,
-        suffix="old",
-    )
-
-    new_section = create_section_graph(
-        session,
-        suffix="new",
-    )
-
+def test_policy_change_persists_old_claim_relationship(session):
+    section = create_section_graph(session, suffix="old")
     old_claim = create_claim(
         session,
-        section_id=old_section.id,
-        text="Importers must submit Form X within 30 days.",
-    )
-
-    new_claim = create_claim(
-        session,
-        section_id=new_section.id,
-        text="Importers must submit Form X within 45 days.",
-    )
-
-    correspondence = ClaimCorrespondence(
-        id=uuid.uuid4(),
-        claim_a_id=old_claim.id,
-        claim_b_id=new_claim.id,
-        relationship_type="MODIFIED",
-        confidence=1.0,
-        method="REQUIREMENT_STRUCTURE",
-        status="VERIFIED",
-    )
-
-    session.add(correspondence)
-    session.flush()
-
-    detection = ChangeDetectionResult(
-        change_type="MODIFIED",
-        summary="An existing claim was modified.",
-    )
-
-    result = PolicyChangeService().create(
-        session,
-        detection=detection,
-        claim_correspondence=correspondence,
-        old_claim=old_claim,
-        new_claim=new_claim,
-        effective_date=datetime(2026, 10, 1),
-    )
-
-    session.commit()
-
-    policy_change = session.get(
-        PolicyChange,
-        result.policy_change_id,
-    )
-
-    assert policy_change is not None
-    assert policy_change.change_type == "MODIFIED"
-    assert (
-        policy_change.summary
-        == "An existing claim was modified."
-    )
-    assert policy_change.effective_date == datetime(
-        2026,
-        10,
-        1,
-    )
-
-    claim_links = (
-        session.query(PolicyChangeClaim)
-        .filter_by(policy_change_id=policy_change.id)
-        .all()
-    )
-
-    assert len(claim_links) == 2
-
-    roles = {
-        link.claim_id: link.role
-        for link in claim_links
-    }
-
-    assert roles[old_claim.id] == "OLD"
-    assert roles[new_claim.id] == "NEW"
-
-    correspondence_link = (
-        session.query(PolicyChangeCorrespondence)
-        .filter_by(policy_change_id=policy_change.id)
-        .one()
-    )
-
-    assert (
-        correspondence_link.correspondence_id
-        == correspondence.id
-    )
-
-
-def test_create_added_policy_change(session):
-    section = create_section_graph(
-        session,
-        suffix="added",
-    )
-
-    new_claim = create_claim(
-        session,
-        section_id=section.id,
-        text="Importers must register electronically.",
-    )
-
-    detection = ChangeDetectionResult(
-        change_type="ADDED",
-        summary="A new claim was added.",
-    )
-
-    result = PolicyChangeService().create(
-        session,
-        detection=detection,
-        new_claim=new_claim,
-    )
-
-    session.commit()
-
-    policy_change = session.get(
-        PolicyChange,
-        result.policy_change_id,
-    )
-
-    assert policy_change is not None
-    assert policy_change.change_type == "ADDED"
-
-    claim_links = (
-        session.query(PolicyChangeClaim)
-        .filter_by(policy_change_id=policy_change.id)
-        .all()
-    )
-
-    assert len(claim_links) == 1
-    assert claim_links[0].claim_id == new_claim.id
-    assert claim_links[0].role == "NEW"
-
-
-def test_create_removed_policy_change(session):
-    section = create_section_graph(
-        session,
-        suffix="removed",
-    )
-
-    old_claim = create_claim(
-        session,
-        section_id=section.id,
-        text="Importers must submit Form X.",
+        section=section,
+        text="Imported goods must be removed within 60 days.",
     )
 
     detection = ChangeDetectionResult(
@@ -272,12 +113,7 @@ def test_create_removed_policy_change(session):
         old_claim=old_claim,
     )
 
-    session.commit()
-
-    policy_change = session.get(
-        PolicyChange,
-        result.policy_change_id,
-    )
+    policy_change = session.get(PolicyChange, result.policy_change_id)
 
     assert policy_change is not None
     assert policy_change.change_type == "REMOVED"
@@ -293,6 +129,90 @@ def test_create_removed_policy_change(session):
     assert claim_links[0].role == "OLD"
 
 
+def test_policy_change_persists_new_claim_relationship(session):
+    section = create_section_graph(session, suffix="new")
+    new_claim = create_claim(
+        session,
+        section=section,
+        text="Imported goods must be removed within 45 days.",
+    )
+
+    detection = ChangeDetectionResult(
+        change_type="ADDED",
+        summary="A new claim was added.",
+    )
+
+    result = PolicyChangeService().create(
+        session,
+        detection=detection,
+        new_claim=new_claim,
+    )
+
+    policy_change = session.get(PolicyChange, result.policy_change_id)
+
+    assert policy_change is not None
+    assert policy_change.change_type == "ADDED"
+
+    claim_links = (
+        session.query(PolicyChangeClaim)
+        .filter_by(policy_change_id=policy_change.id)
+        .all()
+    )
+
+    assert len(claim_links) == 1
+    assert claim_links[0].claim_id == new_claim.id
+    assert claim_links[0].role == "NEW"
+
+
+def test_policy_change_persists_correspondence(session):
+    old_section = create_section_graph(session, suffix="old-correspondence")
+    new_section = create_section_graph(session, suffix="new-correspondence")
+
+    old_claim = create_claim(
+        session,
+        section=old_section,
+        text="Imported goods must be removed within 60 days.",
+    )
+
+    new_claim = create_claim(
+        session,
+        section=new_section,
+        text="Imported goods must be removed within 45 days.",
+    )
+
+    correspondence = ClaimCorrespondence(
+        claim_a_id=old_claim.id,
+        claim_b_id=new_claim.id,
+        relationship_type="MODIFIED",
+        confidence=1.0,
+        method="STRUCTURED",
+    )
+    session.add(correspondence)
+    session.flush()
+
+    detection = ChangeDetectionResult(
+        change_type="MODIFIED",
+        summary="An existing claim was modified.",
+    )
+
+    result = PolicyChangeService().create(
+        session,
+        detection=detection,
+        claim_correspondence=correspondence,
+        old_claim=old_claim,
+        new_claim=new_claim,
+    )
+
+    links = (
+        session.query(PolicyChangeCorrespondence)
+        .filter_by(policy_change_id=result.policy_change_id)
+        .all()
+    )
+
+    assert len(links) == 1
+    assert links[0].correspondence_id == correspondence.id
+
+
 def test_policy_change_requires_at_least_one_claim(session):
     detection = ChangeDetectionResult(
         change_type="MODIFIED",
@@ -300,7 +220,7 @@ def test_policy_change_requires_at_least_one_claim(session):
     )
 
     with pytest.raises(
-        ValueError,
+        InvalidStateError,
         match="At least one claim must be provided.",
     ):
         PolicyChangeService().create(

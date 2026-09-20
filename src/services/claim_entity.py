@@ -2,6 +2,8 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from src.domain.exceptions import ConflictError
+
 from src.models.claim_entity import ClaimEntity
 from src.services.entity_resolution import EntityResolutionService
 
@@ -46,7 +48,7 @@ class ClaimEntityService:
 
         if existing is not None:
             if existing.relation_type != relation_type:
-                raise ValueError(
+                raise ConflictError(
                     "Claim entity relationship already exists "
                     "with a different relation type."
                 )

@@ -66,6 +66,10 @@ def test_document_persistence(tmp_path: Path):
             effective_date=datetime(2026, 7, 23),
         )
 
+        db.commit()
+
+        db.commit()
+
         assert result.created is True
 
         assert result.document.id is not None

@@ -3,6 +3,8 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from src.domain.exceptions import ValidationError
+
 from src.services.claim_creation import ClaimCreationResult, ClaimCreationService
 from src.services.claim_evidence_validation import ClaimEvidenceValidator
 from src.services.claim_extraction import (
@@ -29,7 +31,7 @@ class ClaimExtractionPipeline:
         candidates = self.extraction_provider.extract(parsed_section)
 
         if not candidates:
-            raise ValueError("Claim extraction produced no candidates.")
+            raise ValidationError("Claim extraction produced no candidates.")
 
         from src.models.evidence import Evidence
 
@@ -41,7 +43,7 @@ class ClaimExtractionPipeline:
         )
 
         if evidence is None:
-            raise ValueError(
+            raise ValidationError(
                 f"No evidence found for section {section_id}."
             )
 
@@ -53,7 +55,7 @@ class ClaimExtractionPipeline:
             )
 
             if not extraction_result.valid:
-                raise ValueError(
+                raise ValidationError(
                     "Claim extraction validation failed: "
                     + "; ".join(extraction_result.errors)
                 )
@@ -64,29 +66,24 @@ class ClaimExtractionPipeline:
             )
 
             if not evidence_result.supported:
-                raise ValueError(
+                raise ValidationError(
                     "Claim evidence validation failed: "
                     + "; ".join(evidence_result.errors)
                 )
 
-        # Phase 2: create every claim inside one transaction.
-        try:
-            results = tuple(
-                self.claim_creation_service.create_claim(
-                    db,
-                    section_id=section_id,
-                    claim_type=candidate.claim_type,
-                    text=candidate.text,
-                    evidence_ids=(evidence.id,),
-            structure=candidate.structure,
-                )
-                for candidate in candidates
+        # Phase 2: create every claim inside the caller-owned transaction.
+        results = tuple(
+            self.claim_creation_service.create_claim(
+                db,
+                section_id=section_id,
+                claim_type=candidate.claim_type,
+                text=candidate.text,
+                evidence_ids=(evidence.id,),
+                structure=candidate.structure,
             )
+            for candidate in candidates
+        )
 
-            db.commit()
-
-        except Exception:
-            db.rollback()
-            raise
+        return results
 
         return results

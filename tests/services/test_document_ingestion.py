@@ -1,62 +1,75 @@
-from dataclasses import dataclass
 from pathlib import Path
 
-from pypdf import PdfReader
+import pytest
+from pypdf import PdfWriter
+
+from src.domain.exceptions import ValidationError
+from src.services.document_ingestion import (
+    DocumentIngestionService,
+)
 
 
-@dataclass(frozen=True)
-class ExtractedPage:
-    page_number: int
-    text: str
+def create_pdf(path: Path, page_count: int = 1) -> None:
+    writer = PdfWriter()
+
+    for _ in range(page_count):
+        writer.add_blank_page(width=612, height=792)
+
+    with path.open("wb") as file:
+        writer.write(file)
 
 
-@dataclass(frozen=True)
-class IngestedDocument:
-    pages: tuple[ExtractedPage, ...]
+def test_extract_rejects_missing_file(tmp_path):
+    service = DocumentIngestionService()
+
+    with pytest.raises(
+        FileNotFoundError,
+        match="PDF file not found",
+    ):
+        service.extract(tmp_path / "missing.pdf")
 
 
-class DocumentIngestionService:
-    """
-    Extract text from a PDF while preserving page-level provenance.
+def test_extract_rejects_non_pdf_file(tmp_path):
+    service = DocumentIngestionService()
 
-    This service does not:
-    - interpret legal meaning
-    - create claims
-    - determine policy changes
-    - call an LLM
-    - modify source text
-    """
+    path = tmp_path / "document.txt"
+    path.write_text("not a PDF")
 
-    def extract(
-        self,
-        pdf_path: str | Path,
-    ) -> IngestedDocument:
-        path = Path(pdf_path)
+    with pytest.raises(
+        ValidationError,
+        match="Expected a PDF file",
+    ):
+        service.extract(path)
 
-        if not path.exists():
-            raise FileNotFoundError(
-                f"PDF file not found: {path}"
-            )
 
-        if path.suffix.lower() != ".pdf":
-            raise ValueError(
-                f"Expected a PDF file, got: {path.suffix}"
-            )
+def test_extract_returns_pages_for_valid_pdf(tmp_path):
+    service = DocumentIngestionService()
 
-        reader = PdfReader(str(path))
+    path = tmp_path / "document.pdf"
+    create_pdf(path, page_count=2)
 
-        pages: list[ExtractedPage] = []
+    result = service.extract(path)
 
-        for index, page in enumerate(reader.pages):
-            text = page.extract_text() or ""
+    assert len(result.pages) == 2
 
-            pages.append(
-                ExtractedPage(
-                    page_number=index + 1,
-                    text=text,
-                )
-            )
 
-        return IngestedDocument(
-            pages=tuple(pages),
-        )
+def test_extract_preserves_page_numbers(tmp_path):
+    service = DocumentIngestionService()
+
+    path = tmp_path / "document.pdf"
+    create_pdf(path, page_count=3)
+
+    result = service.extract(path)
+
+    assert [page.page_number for page in result.pages] == [1, 2, 3]
+
+
+def test_extract_handles_pages_without_extractable_text(tmp_path):
+    service = DocumentIngestionService()
+
+    path = tmp_path / "document.pdf"
+    create_pdf(path)
+
+    result = service.extract(path)
+
+    assert result.pages[0].text == ""

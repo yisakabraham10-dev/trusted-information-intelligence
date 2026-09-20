@@ -1,9 +1,11 @@
+import pytest
 from uuid import uuid4
 
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
 from src.db.base import Base
+from src.domain.exceptions import ValidationError
 from src.models.claim import Claim
 from src.models.claim_evidence import ClaimEvidence
 from src.models.evidence import Evidence
@@ -44,7 +46,10 @@ def test_claim_creation_requires_evidence():
 
         service = ClaimCreationService()
 
-        try:
+        with pytest.raises(
+            ValidationError,
+            match="evidence",
+        ):
             service.create_claim(
                 db,
                 section_id=section.id,
@@ -52,12 +57,6 @@ def test_claim_creation_requires_evidence():
                 text="Imported goods must be removed within 45 days.",
                 evidence_ids=(),
                 structure=_requirement_structure(),
-            )
-        except ValueError as exc:
-            assert "evidence" in str(exc).lower()
-        else:
-            raise AssertionError(
-                "Claim creation should fail without evidence."
             )
 
 

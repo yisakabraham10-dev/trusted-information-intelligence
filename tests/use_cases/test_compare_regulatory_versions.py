@@ -6,6 +6,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
 from src.db.base import Base
+from src.domain.exceptions import InvalidStateError, NotFoundError
 from src.models.claim import Claim
 from src.models.claim_correspondence import ClaimCorrespondence
 from src.models.claim_evidence import ClaimEvidence
@@ -540,7 +541,7 @@ def test_compare_requires_at_least_one_claim(
     session: Session,
 ):
     with pytest.raises(
-        ValueError,
+        InvalidStateError,
         match="At least one claim must be provided.",
     ):
         CompareRegulatoryVersions().execute(
@@ -936,7 +937,7 @@ def test_compare_missing_old_structure_rolls_back(
     session.commit()
 
     with pytest.raises(
-        ValueError,
+        NotFoundError,
         match="Semantic structure not found for old claim",
     ):
         CompareRegulatoryVersions().execute(
@@ -982,7 +983,7 @@ def test_compare_missing_new_structure_rolls_back(
     session.commit()
 
     with pytest.raises(
-        ValueError,
+        NotFoundError,
         match="Semantic structure not found for new claim",
     ):
         CompareRegulatoryVersions().execute(

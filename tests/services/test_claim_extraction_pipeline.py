@@ -6,6 +6,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from src.db.base import Base
+from src.domain.exceptions import ValidationError
 from src.models.claim import Claim
 from src.models.document import Document
 from src.models.document_version import DocumentVersion
@@ -278,7 +279,7 @@ def test_pipeline_rejects_valid_and_invalid_candidates_without_persisting():
         )
 
         with pytest.raises(
-            ValueError,
+            ValidationError,
             match="Claim extraction validation failed",
         ):
             pipeline.process(
@@ -322,6 +323,8 @@ def test_pipeline_rolls_back_when_claim_creation_fails_mid_transaction():
                 parsed_section=parsed_section,
             )
 
+        db.rollback()
+
         persisted_claims = db.query(Claim).all()
 
         assert persisted_claims == []
@@ -336,7 +339,10 @@ def test_pipeline_rejects_empty_extraction():
 
         pipeline = make_pipeline(())
 
-        with pytest.raises(ValueError, match="no candidates"):
+        with pytest.raises(
+            ValidationError,
+            match="no candidates",
+        ):
             pipeline.process(
                 db,
                 section_id=section.id,
@@ -361,7 +367,7 @@ def test_pipeline_rejects_invalid_extraction_before_evidence_validation():
         pipeline = make_pipeline((invalid_candidate,))
 
         with pytest.raises(
-            ValueError,
+            ValidationError,
             match="Claim extraction validation failed",
         ):
             pipeline.process(
