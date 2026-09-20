@@ -42,6 +42,15 @@ class ChangeDetector:
                 ),
             )
 
+        if correspondence.relationship_type == "UNKNOWN":
+            return ChangeDetectionResult(
+                change_type="REQUIRES_REVIEW",
+                summary=(
+                    "The system could not reliably determine whether "
+                    "the claims correspond."
+                ),
+            )
+
         if correspondence.relationship_type == "SAME":
             return None
 

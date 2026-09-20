@@ -177,3 +177,31 @@ def test_applicability_is_unknown_without_conditions():
         assert result.matched_conditions == ()
         assert result.unmatched_conditions == ()
         assert result.reason == "No applicability conditions were provided."
+
+def test_applicability_is_unknown_for_empty_business_profile():
+    engine = create_database()
+
+    with Session(engine) as db:
+        profile_service = BusinessProfileService()
+        applicability = ApplicabilityService()
+
+        profile = profile_service.create(
+            db,
+            name="Empty Business Profile",
+        )
+
+        result = applicability.evaluate(
+            db,
+            business_profile_id=profile.id,
+            conditions=(
+                ApplicabilityCondition(
+                    relation_type="ACTIVITY",
+                    entity_type="ACTIVITY",
+                    entity_names=("Import",),
+                ),
+            ),
+        )
+
+        assert result.status == ApplicabilityStatus.UNKNOWN
+        assert result.matched_conditions == ()
+        assert len(result.unmatched_conditions) == 1

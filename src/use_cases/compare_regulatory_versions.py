@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from src.models.claim import Claim
 from src.models.claim_correspondence import ClaimCorrespondence
+from src.models.claim_evidence import ClaimEvidence
 from src.models.claim_structure import ClaimStructure as ClaimStructureModel
 from src.services.change_detector import ChangeDetectionResult, ChangeDetector
 from src.services.claim_correspondence import (
@@ -87,6 +88,31 @@ class CompareRegulatoryVersions:
             correspondence = None
             claim_correspondence = None
 
+            claims_to_check = tuple(
+                claim
+                for claim in (old_claim, new_claim)
+                if claim is not None
+            )
+
+            for claim in claims_to_check:
+                if not self._has_supporting_evidence(
+                    session,
+                    claim.id,
+                ):
+                    return CompareRegulatoryVersionsResult(
+                        old_claim_id=old_claim.id if old_claim else None,
+                        new_claim_id=new_claim.id if new_claim else None,
+                        correspondence=None,
+                        detection=ChangeDetectionResult(
+                            change_type="REQUIRES_REVIEW",
+                            summary=(
+                                "The claim does not have supporting evidence "
+                                "that can be verified by the system."
+                            ),
+                        ),
+                        policy_change=None,
+                    )
+
             if old_claim is not None and new_claim is not None:
                 old_structure = self._get_structure(
                     session,
@@ -158,6 +184,17 @@ class CompareRegulatoryVersions:
                     policy_change=None,
                 )
 
+            if detection.change_type == "REQUIRES_REVIEW":
+                session.commit()
+
+                return CompareRegulatoryVersionsResult(
+                    old_claim_id=old_claim.id if old_claim else None,
+                    new_claim_id=new_claim.id if new_claim else None,
+                    correspondence=correspondence,
+                    detection=detection,
+                    policy_change=None,
+                )
+
             policy_change = self._policy_change_service.create(
                 session,
                 detection=detection,
@@ -204,3 +241,20 @@ class CompareRegulatoryVersions:
                 ClaimStructureModel.claim_id == claim_id
             )
         )
+
+    @staticmethod
+    def _has_supporting_evidence(
+        session: Session,
+        claim_id: uuid.UUID,
+    ) -> bool:
+        evidence_id = session.scalar(
+            select(ClaimEvidence.evidence_id)
+            .where(
+                ClaimEvidence.claim_id == claim_id,
+                ClaimEvidence.relation_type == "SUPPORTS",
+                ClaimEvidence.strength > 0,
+            )
+            .limit(1)
+        )
+
+        return evidence_id is not None

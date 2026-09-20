@@ -81,3 +81,15 @@ def test_both_claims_missing_is_invalid():
             old_claim_exists=False,
             new_claim_exists=False,
         )
+
+def test_unknown_correspondence_requires_review():
+    result = ChangeDetector().detect(
+        correspondence("UNKNOWN", confidence=0.0)
+    )
+
+    assert result is not None
+    assert result.change_type == "REQUIRES_REVIEW"
+    assert result.summary == (
+        "The system could not reliably determine whether "
+        "the claims correspond."
+    )
