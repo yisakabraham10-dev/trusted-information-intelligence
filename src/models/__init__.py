@@ -14,6 +14,7 @@ from src.models.policy_change_correspondence import PolicyChangeCorrespondence
 from src.models.business_profile import BusinessProfile
 from src.models.business_profile_entity import BusinessProfileEntity
 from src.models.business_profile_source import BusinessProfileSource
+from src.models.document_submission import DocumentSubmission
 
 __all__ = [
     "Source",
@@ -32,4 +33,5 @@ __all__ = [
     "BusinessProfile",
     "BusinessProfileEntity",
     "BusinessProfileSource",
+    "DocumentSubmission",
 ]
