@@ -13,6 +13,7 @@ dependencies = [
     "pydantic-settings",
     "google-genai",
     "groq",
+    "beautifulsoup4",
 ]
 
 [project.optional-dependencies]
