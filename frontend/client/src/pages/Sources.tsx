@@ -142,11 +142,13 @@ export default function Sources() {
       ) : (
         <div className="rounded-2xl border border-dashed border-[#d4e0e3] bg-white px-6 py-16 text-center">
           <div className="font-display text-xl font-semibold text-[#315565]">
-            No tracked sources
+            No tracked sources configured
           </div>
-          <p className="mt-2 text-[12px] text-[#82949b]">
-            The selected business profile does not currently have any tracked
-            source relationships.
+
+          <p className="mx-auto mt-2 max-w-[560px] text-[12px] leading-6 text-[#82949b]">
+            This business profile does not currently have explicit
+            source-monitoring relationships. Regulatory documents can still
+            retain their authoritative source information independently.
           </p>
         </div>
       )}

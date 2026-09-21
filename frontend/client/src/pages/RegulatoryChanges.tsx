@@ -191,7 +191,13 @@ export default function RegulatoryChanges() {
               </div>
 
               <h2 className="text-[14px] font-semibold leading-5 text-[#294e5f] group-hover:text-[#1f6d74]">
-                {change.summary}
+                {change.change_type === "MODIFIED"
+                  ? "Regulatory requirement modified"
+                  : change.change_type === "ADDED"
+                    ? "Regulatory requirement added"
+                    : change.change_type === "REMOVED"
+                      ? "Regulatory requirement removed"
+                      : "Regulatory change requires review"}
               </h2>
 
               {claim && (
