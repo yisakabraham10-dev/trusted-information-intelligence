@@ -14,6 +14,7 @@ dependencies = [
     "google-genai",
     "groq",
     "beautifulsoup4",
+    "pypdf",
 ]
 
 [project.optional-dependencies]
