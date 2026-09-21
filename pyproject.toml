@@ -15,6 +15,7 @@ dependencies = [
     "groq",
     "beautifulsoup4",
     "pypdf",
+    "python-multipart",
 ]
 
 [project.optional-dependencies]
