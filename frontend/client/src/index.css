@@ -1,0 +1,48 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@theme inline {
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+}
+
+:root {
+  --background: #f4f7f7;
+  --foreground: #183346;
+  --card: #ffffff;
+  --card-foreground: #183346;
+  --border: #dce6e8;
+  --ring: #8ebdb9;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+* { box-sizing: border-box; }
+html { min-width: 320px; background: var(--background); }
+body { margin: 0; min-width: 320px; background: var(--background); font-family: "DM Sans", ui-sans-serif, system-ui, sans-serif; color: var(--foreground); -webkit-font-smoothing: antialiased; }
+button, a, input { font: inherit; }
+button { cursor: pointer; }
+button:active { transform: scale(0.98); }
+a { text-decoration: none; }
+::selection { background: #cde4e1; color: #153d4e; }
+
+.font-display { font-family: "Manrope", ui-sans-serif, system-ui, sans-serif; }
+.label-caps { color: #98a8ad; font-size: 9px; font-weight: 700; letter-spacing: .18em; line-height: 1.2; text-transform: uppercase; }
+.soft-card { box-shadow: 0 10px 28px rgba(40, 73, 84, .045); transition: transform 220ms var(--ease-out), box-shadow 220ms var(--ease-out), border-color 220ms var(--ease-out); }
+.soft-card:hover { transform: translateY(-2px); box-shadow: 0 16px 34px rgba(40, 73, 84, .08); border-color: #c5dadd; }
+.page-enter { animation: page-enter 420ms var(--ease-out) both; }
+@keyframes page-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
+}
+
+@media print {
+  aside, header, button, a, .label-caps { display: none !important; }
+  body, main, .page-enter { background: white !important; }
+}
